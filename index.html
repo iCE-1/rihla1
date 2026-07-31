@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الرحلة العلمية — سجل الطالب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --paper:#EDE4D0;
+    --paper-dark:#E2D6BC;
+    --ink:#2A2620;
+    --ink-soft:#5B5346;
+    --green:#33503B;
+    --green-deep:#22362A;
+    --gold:#AD8737;
+    --red:#8C4A3C;
+    --rule: rgba(42,38,32,0.15);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at top left, rgba(173,135,55,0.06), transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Tajawal',sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:28px 20px 80px;}
+
+  header.top{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:14px;margin-bottom:26px;
+  }
+  header.top .title{
+    font-family:'Aref Ruqaa',serif;
+    font-weight:700;
+    font-size:2.1rem;
+    color:var(--green-deep);
+  }
+  header.top .hijri-note{
+    font-size:.8rem;color:var(--ink-soft);
+  }
+  #status-pill{
+    font-size:.72rem;padding:3px 10px;border-radius:20px;
+    background:var(--paper-dark);border:1px solid var(--rule);
+    color:var(--ink-soft);
+  }
+
+  .stats-row{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    background:var(--ink);
+    border:1px solid var(--ink);
+    margin-bottom:28px;
+  }
+  .stat{
+    background:var(--paper);
+    padding:14px 10px;text-align:center;
+  }
+  .stat .num{font-family:'Aref Ruqaa',serif;font-size:1.7rem;color:var(--green-deep);display:block;}
+  .stat .lbl{font-size:.72rem;color:var(--ink-soft);}
+
+  .entry-box{
+    background:var(--paper-dark);
+    border:1px solid var(--rule);
+    padding:20px;margin-bottom:30px;
+    position:relative;
+  }
+  .entry-box::before{
+    content:"سجل اليوم";
+    position:absolute;top:-12px;right:16px;
+    background:var(--green-deep);color:var(--paper);
+    font-family:'Aref Ruqaa',serif;font-size:.95rem;
+    padding:3px 14px;
+  }
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:.82rem;color:var(--ink-soft);margin-bottom:5px;}
+  .field textarea, .field input, .field select{
+    width:100%;padding:9px 10px;
+    border:1px solid var(--rule);background:var(--paper);
+    font-family:'Tajawal',sans-serif;font-size:.9rem;color:var(--ink);
+    border-radius:2px;
+  }
+  .field textarea{min-height:60px;resize:vertical;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:560px){.row2{grid-template-columns:1fr;}.stats-row{grid-template-columns:repeat(2,1fr);}}
+
+  .tag-choices{display:flex;gap:8px;flex-wrap:wrap;}
+  .tag-choices button{
+    padding:6px 14px;border-radius:20px;border:1px solid var(--ink-soft);
+    background:transparent;font-family:'Tajawal',sans-serif;font-size:.8rem;
+    cursor:pointer;color:var(--ink-soft);transition:.15s;
+  }
+  .tag-choices button.active{background:var(--green);color:var(--paper);border-color:var(--green);}
+
+  button.primary{
+    background:var(--green-deep);color:var(--paper);border:none;
+    padding:10px 26px;font-family:'Tajawal',sans-serif;font-weight:700;
+    font-size:.9rem;cursor:pointer;border-radius:2px;
+  }
+  button.primary:hover{background:var(--green);}
+  button.ghost{
+    background:none;border:1px solid var(--rule);color:var(--ink-soft);
+    padding:5px 12px;font-size:.78rem;cursor:pointer;border-radius:2px;
+  }
+  button.ghost:hover{border-color:var(--red);color:var(--red);}
+
+  .timeline-head{
+    display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;
+  }
+  .timeline-head h2{font-family:'Aref Ruqaa',serif;font-size:1.3rem;color:var(--green-deep);margin:0;}
+  select#filterTag{padding:5px 8px;border:1px solid var(--rule);background:var(--paper);font-size:.8rem;}
+
+  .day-entry{
+    border-right:3px solid var(--green);
+    padding:12px 16px;margin-bottom:14px;background:var(--paper-dark);
+    position:relative;
+  }
+  .day-entry .date{font-size:.75rem;color:var(--ink-soft);margin-bottom:6px;}
+  .day-entry .tag{
+    display:inline-block;font-size:.68rem;padding:2px 9px;border-radius:10px;
+    background:var(--green-deep);color:var(--paper);margin-inline-start:6px;
+  }
+  .day-entry p{margin:4px 0;font-size:.88rem;line-height:1.7;}
+  .day-entry .del{position:absolute;left:10px;top:10px;}
+
+  .empty{
+    text-align:center;padding:50px 20px;color:var(--ink-soft);
+    border:1px dashed var(--rule);font-size:.9rem;
+  }
+
+  .setup-screen{
+    max-width:560px;margin:60px auto;padding:30px;background:var(--paper-dark);
+    border:1px solid var(--rule);
+  }
+  .setup-screen h1{font-family:'Aref Ruqaa',serif;color:var(--green-deep);}
+  .setup-screen ol{font-size:.88rem;line-height:2;color:var(--ink-soft);}
+  .setup-screen input{width:100%;padding:9px;margin-bottom:10px;border:1px solid var(--rule);background:var(--paper);}
+  .setup-screen a{color:var(--gold);}
+
+  .tabs-nav{display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--rule);}
+  .tab-btn{
+    background:none;border:none;padding:9px 18px;font-family:'Tajawal',sans-serif;
+    font-size:.88rem;color:var(--ink-soft);cursor:pointer;border-bottom:2px solid transparent;
+  }
+  .tab-btn.active{color:var(--green-deep);border-bottom-color:var(--green-deep);font-weight:700;}
+
+  .subjects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;}
+  .subject-card{
+    background:var(--paper-dark);border:1px solid var(--rule);padding:16px;position:relative;
+    border-right:4px solid var(--ink-soft);
+  }
+  .subject-card.status-todo{border-right-color:var(--ink-soft);}
+  .subject-card.status-in_progress{border-right-color:var(--gold);}
+  .subject-card.status-complete{border-right-color:var(--green);}
+  .subject-card .del{position:absolute;left:10px;top:10px;}
+  .sj-name{font-family:'Aref Ruqaa',serif;font-size:1.25rem;color:var(--green-deep);margin-bottom:4px;}
+  .sj-status{font-size:.75rem;color:var(--ink-soft);margin-bottom:8px;}
+  .sj-current{font-size:.82rem;margin-bottom:10px;color:var(--ink);}
+  .sj-progress-bar{background:var(--paper);border:1px solid var(--rule);height:8px;border-radius:6px;overflow:hidden;margin-bottom:6px;}
+  .sj-progress-fill{background:var(--green);height:100%;}
+  .sj-progress-label{font-size:.75rem;color:var(--ink-soft);margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<div id="app" class="wrap"></div>
+
+<script>
+const LS_KEY_URL = 'rihla_supabase_url';
+const LS_KEY_KEY = 'rihla_supabase_key';
+
+const TYPES = [
+  {id:'hifz', label:'حفظ'},
+  {id:'muraja3a', label:'مراجعة'},
+  {id:'dars', label:'حضور درس'},
+  {id:'qiraa', label:'قراءة'},
+  {id:'fayda', label:'فائدة'}
+];
+
+let sb = null;
+let selectedType = 'hifz';
+
+function tagLabel(id){ return (TYPES.find(t=>t.id===id)||{}).label || id; }
+
+function getCreds(){
+  return { url: localStorage.getItem(LS_KEY_URL), key: localStorage.getItem(LS_KEY_KEY) };
+}
+
+function renderSetup(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+  <div class="setup-screen">
+    <h1>الرحلة العلمية</h1>
+    <p style="color:var(--ink-soft);font-size:.88rem">لتجعل سجلك دائمًا ويتبعك على كل أجهزتك، يحتاج التطبيق قاعدة بيانات مجانية من Supabase (خمس دقائق فقط، مرة واحدة):</p>
+    <ol>
+      <li>افتح <a href="https://supabase.com" target="_blank">supabase.com</a> وسجّل حساب مجاني</li>
+      <li>أنشئ مشروع جديد (New Project)</li>
+      <li>من القائمة الجانبية: SQL Editor ← New query، والصق هذا السطر ثم Run:</li>
+    </ol>
+    <pre style="background:var(--paper);padding:10px;font-size:.78rem;overflow:auto;border:1px solid var(--rule)">create table entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null default auth.uid(),
+  entry_date date not null,
+  type text not null,
+  content text not null,
+  created_at timestamp default now()
+);
+alter table entries enable row level security;
+create policy "read own" on entries for select using (auth.uid() = user_id);
+create policy "insert own" on entries for insert with check (auth.uid() = user_id);
+create policy "delete own" on entries for delete using (auth.uid() = user_id);
+grant select, insert, delete on entries to authenticated;
+
+create table subjects (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null default auth.uid(),
+  name text not null,
+  color text not null default 'green',
+  total_lessons int not null default 0,
+  completed_lessons int not null default 0,
+  current_lesson text default '',
+  status text not null default 'todo',
+  sort_order int default 0,
+  created_at timestamp default now()
+);
+alter table subjects enable row level security;
+create policy "read own subjects" on subjects for select using (auth.uid() = user_id);
+create policy "insert own subjects" on subjects for insert with check (auth.uid() = user_id);
+create policy "update own subjects" on subjects for update using (auth.uid() = user_id);
+create policy "delete own subjects" on subjects for delete using (auth.uid() = user_id);
+grant select, insert, update, delete on subjects to authenticated;</pre>
+    <ol start="4">
+      <li>من Authentication ← Providers، تأكد إن Email مفعّل (مفعّل افتراضيًا)</li>
+      <li>من Authentication ← Settings، عطّل "Confirm email" إذا تبي تدخل مباشرة بدون تفعيل بريد (اختياري، تقدر تسويها لاحقًا بأمان أكثر)</li>
+      <li>من Settings ← API، انسخ <b>Project URL</b> و <b>anon public key</b> وألصقهما هنا:</li>
+    </ol>
+    <input id="urlInput" placeholder="Project URL">
+    <input id="keyInput" placeholder="anon public key">
+    <button class="primary" onclick="saveCreds()">حفظ ومتابعة</button>
+    <p style="font-size:.75rem;color:var(--ink-soft)">هذي المفاتيح تسمح فقط بإنشاء حساب وتسجيل دخول — بياناتك محمية بحساب خاص فيك حتى لو صار الرابط عام.</p>
+  </div>`;
+}
+
+function saveCreds(){
+  const url = document.getElementById('urlInput').value.trim();
+  const key = document.getElementById('keyInput').value.trim();
+  if(!url || !key){ alert('الرجاء تعبئة الحقلين'); return; }
+  localStorage.setItem(LS_KEY_URL, url);
+  localStorage.setItem(LS_KEY_KEY, key);
+  init();
+}
+
+async function init(){
+  const {url, key} = getCreds();
+  if(!url || !key){ renderSetup(); return; }
+  sb = window.supabase.createClient(url, key);
+
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session){ renderAuth(); return; }
+  await renderApp();
+}
+
+function renderAuth(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+  <div class="setup-screen">
+    <h1>الرحلة العلمية</h1>
+    <p style="color:var(--ink-soft);font-size:.88rem">سجّل دخولك ببريدك حتى يبقى سجلك خاصًا فيك، حتى لو صار رابط الصفحة عام.</p>
+    <input id="authEmail" type="email" placeholder="البريد الإلكتروني">
+    <input id="authPass" type="password" placeholder="كلمة السر (6 أحرف على الأقل)">
+    <div id="authMsg" style="color:var(--red);font-size:.8rem;margin-bottom:8px"></div>
+    <button class="primary" onclick="signIn()" style="width:100%;margin-bottom:8px">دخول</button>
+    <button class="ghost" onclick="signUp()" style="width:100%">إنشاء حساب جديد</button>
+    <p style="margin-top:16px"><button class="ghost" onclick="resetCreds()">تغيير قاعدة البيانات</button></p>
+  </div>`;
+}
+
+async function signIn(){
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPass').value;
+  const {error} = await sb.auth.signInWithPassword({email, password});
+  if(error){ document.getElementById('authMsg').textContent = error.message; return; }
+  await renderApp();
+}
+
+async function signUp(){
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPass').value;
+  if(!email || password.length < 6){
+    document.getElementById('authMsg').textContent = 'أدخل بريدًا وكلمة سر لا تقل عن 6 أحرف';
+    return;
+  }
+  const {data, error} = await sb.auth.signUp({email, password});
+  if(error){ document.getElementById('authMsg').textContent = error.message; return; }
+  if(data.session){ await renderApp(); }
+  else { document.getElementById('authMsg').style.color = 'var(--green)'; document.getElementById('authMsg').textContent = 'تم إنشاء الحساب. تحقق من بريدك لتفعيله ثم سجّل دخولك.'; }
+}
+
+async function signOut(){
+  await sb.auth.signOut();
+  renderAuth();
+}
+
+async function renderApp(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <header class="top">
+      <div>
+        <div class="title">الرحلة العلمية</div>
+        <div class="hijri-note">سجلّك الشخصي لكل ما تحفظ وتقرأ وتستفيد</div>
+      </div>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span id="status-pill">متصل</span>
+        <button class="ghost" onclick="signOut()">خروج</button>
+      </span>
+    </header>
+
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="tabs-nav">
+      <button class="tab-btn active" id="tabDaily" onclick="switchTab('daily')">السجل اليومي</button>
+      <button class="tab-btn" id="tabPath" onclick="switchTab('path')">الطريق</button>
+    </div>
+
+    <div id="dailyView"></div>
+    <div id="pathView" style="display:none"></div>
+  `;
+
+  document.getElementById('dateInput') && (document.getElementById('dateInput').valueAsDate = new Date());
+  renderDailyView();
+}
+
+function switchTab(tab){
+  document.getElementById('tabDaily').classList.toggle('active', tab==='daily');
+  document.getElementById('tabPath').classList.toggle('active', tab==='path');
+  document.getElementById('dailyView').style.display = tab==='daily' ? '' : 'none';
+  document.getElementById('pathView').style.display = tab==='path' ? '' : 'none';
+  if(tab==='path') renderPathView();
+}
+
+function renderDailyView(){
+  const el = document.getElementById('dailyView');
+  el.innerHTML = `
+    <div class="entry-box">
+      <div class="field">
+        <label>نوع القيد</label>
+        <div class="tag-choices" id="typeChoices"></div>
+      </div>
+      <div class="field">
+        <label>ماذا سجّلت اليوم؟</label>
+        <textarea id="contentInput" placeholder="مثال: حفظت من باب الطهارة إلى باب الحيض من متن أبي شجاع..."></textarea>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>التاريخ</label>
+          <input type="date" id="dateInput">
+        </div>
+        <div class="field" style="display:flex;align-items:flex-end;">
+          <button class="primary" onclick="addEntry()" style="width:100%">حفظ في السجل</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-head">
+      <h2>سجل الأيام</h2>
+      <select id="filterTag" onchange="loadEntries()">
+        <option value="all">الكل</option>
+        ${TYPES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('')}
+      </select>
+    </div>
+    <div id="timeline"></div>
+    <div style="text-align:center;margin-top:10px">
+      <button class="ghost" onclick="resetCreds()">تغيير قاعدة البيانات</button>
+    </div>
+  `;
+
+  document.getElementById('dateInput').valueAsDate = new Date();
+
+  const tc = document.getElementById('typeChoices');
+  tc.innerHTML = TYPES.map(t=>`<button data-id="${t.id}" class="${t.id===selectedType?'active':''}" onclick="selectType('${t.id}')">${t.label}</button>`).join('');
+
+  loadEntries();
+}
+
+function selectType(id){
+  selectedType = id;
+  document.querySelectorAll('.tag-choices button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.id===id);
+  });
+}
+
+const SUBJECT_COLORS = ['gold','green','red'];
+const STATUS_LABELS = {todo:'لسا ما بدأت', in_progress:'أدرسه الحين', complete:'خلصته'};
+
+async function renderPathView(){
+  const el = document.getElementById('pathView');
+  el.innerHTML = `
+    <div class="timeline-head">
+      <h2>الطريق</h2>
+      <button class="primary" onclick="openSubjectForm()">+ إضافة علم</button>
+    </div>
+    <div id="subjectFormWrap"></div>
+    <div id="subjectsGrid" class="subjects-grid"></div>
+  `;
+  await loadSubjects();
+}
+
+function openSubjectForm(existing){
+  const wrap = document.getElementById('subjectFormWrap');
+  const s = existing || {name:'', total_lessons:0, completed_lessons:0, current_lesson:'', status:'todo', color:'green', id:null};
+  wrap.innerHTML = `
+    <div class="entry-box">
+      <div class="row2">
+        <div class="field">
+          <label>اسم العلم أو المتن</label>
+          <input id="sjName" value="${escapeHtml(s.name)}" placeholder="مثل: النحو، أصول الفقه...">
+        </div>
+        <div class="field">
+          <label>الحالة</label>
+          <select id="sjStatus">
+            ${Object.entries(STATUS_LABELS).map(([k,v])=>`<option value="${k}" ${s.status===k?'selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>عدد الدروس الكلي</label>
+          <input id="sjTotal" type="number" min="0" value="${s.total_lessons}">
+        </div>
+        <div class="field">
+          <label>عدد الدروس المنجزة</label>
+          <input id="sjDone" type="number" min="0" value="${s.completed_lessons}">
+        </div>
+      </div>
+      <div class="field">
+        <label>الدرس الحالي (اختياري)</label>
+        <input id="sjCurrent" value="${escapeHtml(s.current_lesson||'')}" placeholder="مثل: باب الحيض">
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="primary" onclick="saveSubject(${s.id ? `'${s.id}'` : 'null'})">حفظ</button>
+        <button class="ghost" onclick="document.getElementById('subjectFormWrap').innerHTML=''">إلغاء</button>
+      </div>
+    </div>
+  `;
+}
+
+async function saveSubject(id){
+  const name = document.getElementById('sjName').value.trim();
+  if(!name){ alert('اكتب اسم العلم أولاً'); return; }
+  const payload = {
+    name,
+    status: document.getElementById('sjStatus').value,
+    total_lessons: parseInt(document.getElementById('sjTotal').value) || 0,
+    completed_lessons: parseInt(document.getElementById('sjDone').value) || 0,
+    current_lesson: document.getElementById('sjCurrent').value.trim()
+  };
+  let error;
+  if(id){
+    ({error} = await sb.from('subjects').update(payload).eq('id', id));
+  } else {
+    ({error} = await sb.from('subjects').insert(payload));
+  }
+  if(error){ alert('صار خطأ: '+error.message); return; }
+  document.getElementById('subjectFormWrap').innerHTML = '';
+  await loadSubjects();
+}
+
+async function deleteSubject(id){
+  if(!confirm('حذف هذا العلم من الطريق؟')) return;
+  await sb.from('subjects').delete().eq('id', id);
+  await loadSubjects();
+}
+
+async function loadSubjects(){
+  const {data, error} = await sb.from('subjects').select('*').order('sort_order').order('created_at');
+  const grid = document.getElementById('subjectsGrid');
+  if(error){ grid.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; return; }
+  if(!data || data.length===0){
+    grid.innerHTML = `<div class="empty">لسا ما أضفت أي علم. ابدأ بإضافة أول علم بطريقك ⤴</div>`;
+    return;
+  }
+  grid.innerHTML = data.map(s=>{
+    const pct = s.total_lessons > 0 ? Math.min(100, Math.round((s.completed_lessons/s.total_lessons)*100)) : 0;
+    return `
+    <div class="subject-card status-${s.status}">
+      <button class="ghost del" onclick="deleteSubject('${s.id}')">حذف</button>
+      <div class="sj-name">${escapeHtml(s.name)}</div>
+      <div class="sj-status">${STATUS_LABELS[s.status]}</div>
+      ${s.current_lesson ? `<div class="sj-current">📖 ${escapeHtml(s.current_lesson)}</div>` : ''}
+      <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${pct}%"></div></div>
+      <div class="sj-progress-label">${s.completed_lessons} / ${s.total_lessons} درس (${pct}%)</div>
+      <button class="ghost" onclick='openSubjectForm(${JSON.stringify(s).replace(/'/g,"&#39;")})'>تعديل</button>
+    </div>`;
+  }).join('');
+}
+
+async function addEntry(){
+  const content = document.getElementById('contentInput').value.trim();
+  const date = document.getElementById('dateInput').value;
+  if(!content){ alert('اكتب ما تريد تسجيله أولاً'); return; }
+  const {error} = await sb.from('entries').insert({
+    entry_date: date, type: selectedType, content
+  });
+  if(error){ alert('صار خطأ: '+error.message); return; }
+  document.getElementById('contentInput').value = '';
+  await loadEntries();
+}
+
+async function deleteEntry(id){
+  if(!confirm('حذف هذا القيد؟')) return;
+  await sb.from('entries').delete().eq('id', id);
+  await loadEntries();
+}
+
+async function loadEntries(){
+  const filter = document.getElementById('filterTag') ? document.getElementById('filterTag').value : 'all';
+  let query = sb.from('entries').select('*').order('entry_date', {ascending:false}).order('created_at', {ascending:false});
+  if(filter !== 'all') query = query.eq('type', filter);
+  const {data, error} = await query;
+  const timeline = document.getElementById('timeline');
+  if(error){ timeline.innerHTML = `<div class="empty">تعذّر تحميل السجل: ${error.message}</div>`; return; }
+
+  renderStats(data, filter);
+
+  if(!data || data.length===0){
+    timeline.innerHTML = `<div class="empty">لا توجد قيود بعد. ابدأ رحلتك بتسجيل أول فائدة أو حفظ اليوم ⤴</div>`;
+    return;
+  }
+  timeline.innerHTML = data.map(e=>`
+    <div class="day-entry">
+      <button class="ghost del" onclick="deleteEntry('${e.id}')">حذف</button>
+      <div class="date">${formatDate(e.entry_date)} <span class="tag">${tagLabel(e.type)}</span></div>
+      <p>${escapeHtml(e.content)}</p>
+    </div>
+  `).join('');
+}
+
+async function renderStats(currentFilterData, filter){
+  const {data:all} = await sb.from('entries').select('type, entry_date');
+  const total = all ? all.length : 0;
+  const now = new Date();
+  const thisMonth = (all||[]).filter(e=>{
+    const d = new Date(e.entry_date);
+    return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  }).length;
+  const hifzCount = (all||[]).filter(e=>e.type==='hifz').length;
+  const faydaCount = (all||[]).filter(e=>e.type==='fayda').length;
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat"><span class="num">${total}</span><span class="lbl">إجمالي القيود</span></div>
+    <div class="stat"><span class="num">${thisMonth}</span><span class="lbl">هذا الشهر</span></div>
+    <div class="stat"><span class="num">${hifzCount}</span><span class="lbl">قيود حفظ</span></div>
+    <div class="stat"><span class="num">${faydaCount}</span><span class="lbl">فوائد مسجّلة</span></div>
+  `;
+}
+
+function formatDate(d){
+  const date = new Date(d);
+  return date.toLocaleDateString('ar-SA', {year:'numeric', month:'long', day:'numeric'});
+}
+function escapeHtml(s){
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+function resetCreds(){
+  if(!confirm('سيتم فصل الاتصال بهذه القاعدة (بياناتك تبقى محفوظة في Supabase). متابعة؟')) return;
+  localStorage.removeItem(LS_KEY_URL);
+  localStorage.removeItem(LS_KEY_KEY);
+  init();
+}
+
+init();
+</script>
+</body>
+</html>
