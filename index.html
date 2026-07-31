@@ -164,6 +164,16 @@
   .sj-progress-bar{background:var(--paper);border:1px solid var(--rule);height:8px;border-radius:6px;overflow:hidden;margin-bottom:6px;}
   .sj-progress-fill{background:var(--green);height:100%;}
   .sj-progress-label{font-size:.75rem;color:var(--ink-soft);margin-bottom:10px;}
+
+  .preset-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:18px;}
+  .preset-label{font-size:.8rem;color:var(--ink-soft);margin-inline-end:4px;}
+  .preset-chip{
+    background:var(--paper-dark);border:1px solid var(--rule);border-radius:16px;
+    padding:5px 13px;font-family:'Tajawal',sans-serif;font-size:.78rem;color:var(--green-deep);
+    cursor:pointer;
+  }
+  .preset-chip:hover{background:var(--green);color:var(--paper);border-color:var(--green);}
+  .preset-chip:disabled{opacity:.5;cursor:default;}
 </style>
 </head>
 <body>
@@ -397,17 +407,35 @@ function selectType(id){
 const SUBJECT_COLORS = ['gold','green','red'];
 const STATUS_LABELS = {todo:'لسا ما بدأت', in_progress:'أدرسه الحين', complete:'خلصته'};
 
+const PRESET_SUBJECTS = ['نحو','صرف','بلاغة','منطق','أصول فقه','فقه','إملاء','علوم الكتاب والحديث','التفسير','الحديث','السيرة','الأدب','العلوم الطبيعية'];
+
 async function renderPathView(){
   const el = document.getElementById('pathView');
   el.innerHTML = `
     <div class="timeline-head">
       <h2>الطريق</h2>
-      <button class="primary" onclick="openSubjectForm()">+ إضافة علم</button>
+      <button class="primary" onclick="openSubjectForm()">+ إضافة علم مخصص</button>
     </div>
+    <div class="preset-row" id="presetRow"></div>
     <div id="subjectFormWrap"></div>
     <div id="subjectsGrid" class="subjects-grid"></div>
   `;
   await loadSubjects();
+}
+
+async function addPresetSubject(name, btn){
+  btn.disabled = true;
+  const {error} = await sb.from('subjects').insert({name, status:'todo', total_lessons:0, completed_lessons:0, current_lesson:''});
+  if(error){ alert('صار خطأ: '+error.message); btn.disabled = false; return; }
+  await loadSubjects();
+}
+
+function renderPresetRow(existingNames){
+  const row = document.getElementById('presetRow');
+  const remaining = PRESET_SUBJECTS.filter(n => !existingNames.includes(n));
+  if(remaining.length === 0){ row.innerHTML = ''; return; }
+  row.innerHTML = `<div class="preset-label">إضافة سريعة:</div>` +
+    remaining.map(n => `<button class="preset-chip" onclick="addPresetSubject('${n}', this)">+ ${n}</button>`).join('');
 }
 
 function openSubjectForm(existing){
@@ -480,11 +508,23 @@ async function loadSubjects(){
   const {data, error} = await sb.from('subjects').select('*').order('sort_order').order('created_at');
   const grid = document.getElementById('subjectsGrid');
   if(error){ grid.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; return; }
+
+  renderPresetRow((data||[]).map(s=>s.name));
+
   if(!data || data.length===0){
-    grid.innerHTML = `<div class="empty">لسا ما أضفت أي علم. ابدأ بإضافة أول علم بطريقك ⤴</div>`;
+    grid.innerHTML = `<div class="empty">لسا ما أضفت أي علم. اختر من "إضافة سريعة" فوق، أو أضف علم مخصص ⤴</div>`;
     return;
   }
-  grid.innerHTML = data.map(s=>{
+
+  const sorted = [...data].sort((a,b)=>{
+    const ai = PRESET_SUBJECTS.indexOf(a.name); const bi = PRESET_SUBJECTS.indexOf(b.name);
+    if(ai===-1 && bi===-1) return 0;
+    if(ai===-1) return 1;
+    if(bi===-1) return -1;
+    return ai-bi;
+  });
+
+  grid.innerHTML = sorted.map(s=>{
     const pct = s.total_lessons > 0 ? Math.min(100, Math.round((s.completed_lessons/s.total_lessons)*100)) : 0;
     return `
     <div class="subject-card status-${s.status}">
