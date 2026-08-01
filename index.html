@@ -19,6 +19,17 @@
     --red:#8C4A3C;
     --rule: rgba(42,38,32,0.15);
   }
+  body.dark-mode{
+    --paper:#1E1B16;
+    --paper-dark:#2A251E;
+    --ink:#EDE4D0;
+    --ink-soft:#B8AD98;
+    --green:#5C8A6B;
+    --green-deep:#8FBF9E;
+    --gold:#D4AF5A;
+    --red:#C97B67;
+    --rule: rgba(237,228,208,0.15);
+  }
   *{box-sizing:border-box;}
   body{
     margin:0;
@@ -52,7 +63,7 @@
   }
 
   .stats-row{
-    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;
     background:var(--ink);
     border:1px solid var(--ink);
     margin-bottom:28px;
@@ -149,15 +160,19 @@
   }
   .tab-btn.active{color:var(--green-deep);border-bottom-color:var(--green-deep);font-weight:700;}
 
-  .subjects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;}
-  .subject-card{
+  .subjects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:10px;}
+  .books-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+
+  .path-card{
     background:var(--paper-dark);border:1px solid var(--rule);padding:16px;position:relative;
-    border-right:4px solid var(--ink-soft);
+    border-right:4px solid var(--green-deep);
   }
-  .subject-card.status-todo{border-right-color:var(--ink-soft);}
-  .subject-card.status-in_progress{border-right-color:var(--gold);}
-  .subject-card.status-complete{border-right-color:var(--green);}
-  .subject-card .del{position:absolute;left:10px;top:10px;}
+  .subjects-grid .path-card{cursor:pointer;transition:.15s;}
+  .subjects-grid .path-card:hover{border-color:var(--green);}
+  .path-card.status-todo{border-right-color:var(--ink-soft);}
+  .path-card.status-in_progress{border-right-color:var(--gold);}
+  .path-card.status-complete{border-right-color:var(--green);}
+  .path-card .del{position:absolute;left:10px;top:10px;}
   .sj-name{font-family:'Aref Ruqaa',serif;font-size:1.25rem;color:var(--green-deep);margin-bottom:4px;}
   .sj-status{font-size:.75rem;color:var(--ink-soft);margin-bottom:8px;}
   .sj-current{font-size:.82rem;margin-bottom:10px;color:var(--ink);}
@@ -165,18 +180,15 @@
   .sj-progress-fill{background:var(--green);height:100%;}
   .sj-progress-label{font-size:.75rem;color:var(--ink-soft);margin-bottom:10px;}
 
-  .preset-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:18px;}
-  .preset-label{font-size:.8rem;color:var(--ink-soft);margin-inline-end:4px;}
-  .preset-chip{
-    background:var(--paper-dark);border:1px solid var(--rule);border-radius:16px;
-    padding:5px 13px;font-family:'Tajawal',sans-serif;font-size:.78rem;color:var(--green-deep);
-    cursor:pointer;
+  .level-section{margin-bottom:26px;}
+  .level-title{
+    font-family:'Aref Ruqaa',serif;font-size:1.1rem;color:var(--gold);
+    margin-bottom:12px;padding-bottom:6px;border-bottom:1px dashed var(--rule);
   }
-  .preset-chip:hover{background:var(--green);color:var(--paper);border-color:var(--green);}
-  .preset-chip:disabled{opacity:.5;cursor:default;}
 </style>
 </head>
 <body>
+<script>if(localStorage.getItem('rihla_theme')==='dark'){document.body.classList.add('dark-mode');}</script>
 
 <div id="app" class="wrap"></div>
 
@@ -196,6 +208,18 @@ let sb = null;
 let selectedType = 'hifz';
 
 function tagLabel(id){ return (TYPES.find(t=>t.id===id)||{}).label || id; }
+
+function applyTheme(){
+  const dark = localStorage.getItem('rihla_theme') === 'dark';
+  document.body.classList.toggle('dark-mode', dark);
+  const btn = document.getElementById('themeToggle');
+  if(btn) btn.textContent = dark ? '☀️' : '🌙';
+}
+function toggleTheme(){
+  const isDark = document.body.classList.contains('dark-mode');
+  localStorage.setItem('rihla_theme', isDark ? 'light' : 'dark');
+  applyTheme();
+}
 
 function getCreds(){
   return { url: localStorage.getItem(LS_KEY_URL), key: localStorage.getItem(LS_KEY_KEY) };
@@ -230,11 +254,6 @@ create table subjects (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users not null default auth.uid(),
   name text not null,
-  color text not null default 'green',
-  total_lessons int not null default 0,
-  completed_lessons int not null default 0,
-  current_lesson text default '',
-  status text not null default 'todo',
   sort_order int default 0,
   created_at timestamp default now()
 );
@@ -243,7 +262,27 @@ create policy "read own subjects" on subjects for select using (auth.uid() = use
 create policy "insert own subjects" on subjects for insert with check (auth.uid() = user_id);
 create policy "update own subjects" on subjects for update using (auth.uid() = user_id);
 create policy "delete own subjects" on subjects for delete using (auth.uid() = user_id);
-grant select, insert, update, delete on subjects to authenticated;</pre>
+grant select, insert, update, delete on subjects to authenticated;
+
+create table books (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null default auth.uid(),
+  subject_id uuid references subjects(id) on delete cascade not null,
+  name text not null,
+  level int not null default 1,
+  total_lessons int not null default 0,
+  completed_lessons int not null default 0,
+  current_lesson text default '',
+  status text not null default 'todo',
+  sort_order int default 0,
+  created_at timestamp default now()
+);
+alter table books enable row level security;
+create policy "read own books" on books for select using (auth.uid() = user_id);
+create policy "insert own books" on books for insert with check (auth.uid() = user_id);
+create policy "update own books" on books for update using (auth.uid() = user_id);
+create policy "delete own books" on books for delete using (auth.uid() = user_id);
+grant select, insert, update, delete on books to authenticated;</pre>
     <ol start="4">
       <li>من Authentication ← Providers، تأكد إن Email مفعّل (مفعّل افتراضيًا)</li>
       <li>من Authentication ← Settings، عطّل "Confirm email" إذا تبي تدخل مباشرة بدون تفعيل بريد (اختياري، تقدر تسويها لاحقًا بأمان أكثر)</li>
@@ -325,6 +364,7 @@ async function renderApp(){
         <div class="hijri-note">سجلّك الشخصي لكل ما تحفظ وتقرأ وتستفيد</div>
       </div>
       <span style="display:flex;align-items:center;gap:8px">
+        <button class="ghost" id="themeToggle" onclick="toggleTheme()">🌙</button>
         <span id="status-pill">متصل</span>
         <button class="ghost" onclick="signOut()">خروج</button>
       </span>
@@ -341,11 +381,12 @@ async function renderApp(){
     <div id="pathView" style="display:none"></div>
   `;
 
-  document.getElementById('dateInput') && (document.getElementById('dateInput').valueAsDate = new Date());
+  applyTheme();
   renderDailyView();
 }
 
 function switchTab(tab){
+  if(tab==='path') currentSubjectId = null;
   document.getElementById('tabDaily').classList.toggle('active', tab==='daily');
   document.getElementById('tabPath').classList.toggle('active', tab==='path');
   document.getElementById('dailyView').style.display = tab==='daily' ? '' : 'none';
@@ -404,139 +445,274 @@ function selectType(id){
   });
 }
 
-const SUBJECT_COLORS = ['gold','green','red'];
 const STATUS_LABELS = {todo:'لسا ما بدأت', in_progress:'أدرسه الحين', complete:'خلصته'};
 
 const PRESET_SUBJECTS = ['نحو','صرف','بلاغة','منطق','أصول فقه','فقه','إملاء','علوم الكتاب والحديث','التفسير','الحديث','السيرة','الأدب','العلوم الطبيعية'];
 
+let currentSubjectId = null;
+let currentSubjectName = '';
+
+function attrEscape(s){
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function arabicNumeral(n){
+  const map = {'0':'٠','1':'١','2':'٢','3':'٣','4':'٤','5':'٥','6':'٦','7':'٧','8':'٨','9':'٩'};
+  return String(n).split('').map(d=>map[d]||d).join('');
+}
+
 async function renderPathView(){
+  if(currentSubjectId){
+    await renderSubjectDetail();
+  } else {
+    await renderSubjectsGrid();
+  }
+}
+
+async function ensurePresetSubjects(){
+  const {data:existing, error} = await sb.from('subjects').select('id,name');
+  if(error) return;
+  const existingNames = (existing||[]).map(s=>s.name);
+  const missing = PRESET_SUBJECTS.filter(n => !existingNames.includes(n));
+  if(missing.length){
+    const rows = missing.map(name => ({name, sort_order: PRESET_SUBJECTS.indexOf(name)}));
+    await sb.from('subjects').insert(rows);
+  }
+}
+
+async function renderSubjectsGrid(){
   const el = document.getElementById('pathView');
   el.innerHTML = `
     <div class="timeline-head">
       <h2>الطريق</h2>
-      <button class="primary" onclick="openSubjectForm()">+ إضافة علم مخصص</button>
+      <button class="primary" onclick="openAddSubjectForm()">+ إضافة علم مخصص</button>
     </div>
-    <div class="preset-row" id="presetRow"></div>
     <div id="subjectFormWrap"></div>
-    <div id="subjectsGrid" class="subjects-grid"></div>
+    <div id="subjectsGrid" class="subjects-grid"><div class="empty">جاري التحميل...</div></div>
   `;
-  await loadSubjects();
+  await ensurePresetSubjects();
+  await loadSubjectsGrid();
 }
 
-async function addPresetSubject(name, btn){
-  btn.disabled = true;
-  const {error} = await sb.from('subjects').insert({name, status:'todo', total_lessons:0, completed_lessons:0, current_lesson:''});
-  if(error){ alert('صار خطأ: '+error.message); btn.disabled = false; return; }
-  await loadSubjects();
-}
-
-function renderPresetRow(existingNames){
-  const row = document.getElementById('presetRow');
-  const remaining = PRESET_SUBJECTS.filter(n => !existingNames.includes(n));
-  if(remaining.length === 0){ row.innerHTML = ''; return; }
-  row.innerHTML = `<div class="preset-label">إضافة سريعة:</div>` +
-    remaining.map(n => `<button class="preset-chip" onclick="addPresetSubject('${n}', this)">+ ${n}</button>`).join('');
-}
-
-function openSubjectForm(existing){
+function openAddSubjectForm(){
   const wrap = document.getElementById('subjectFormWrap');
-  const s = existing || {name:'', total_lessons:0, completed_lessons:0, current_lesson:'', status:'todo', color:'green', id:null};
   wrap.innerHTML = `
     <div class="entry-box">
-      <div class="row2">
-        <div class="field">
-          <label>اسم العلم أو المتن</label>
-          <input id="sjName" value="${escapeHtml(s.name)}" placeholder="مثل: النحو، أصول الفقه...">
-        </div>
-        <div class="field">
-          <label>الحالة</label>
-          <select id="sjStatus">
-            ${Object.entries(STATUS_LABELS).map(([k,v])=>`<option value="${k}" ${s.status===k?'selected':''}>${v}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="row2">
-        <div class="field">
-          <label>عدد الدروس الكلي</label>
-          <input id="sjTotal" type="number" min="0" value="${s.total_lessons}">
-        </div>
-        <div class="field">
-          <label>عدد الدروس المنجزة</label>
-          <input id="sjDone" type="number" min="0" value="${s.completed_lessons}">
-        </div>
-      </div>
       <div class="field">
-        <label>الدرس الحالي (اختياري)</label>
-        <input id="sjCurrent" value="${escapeHtml(s.current_lesson||'')}" placeholder="مثل: باب الحيض">
+        <label>اسم العلم الجديد</label>
+        <input id="newSubjectName" placeholder="مثل: علم الفرائض">
       </div>
       <div style="display:flex;gap:10px">
-        <button class="primary" onclick="saveSubject(${s.id ? `'${s.id}'` : 'null'})">حفظ</button>
+        <button class="primary" onclick="saveNewSubject()">حفظ</button>
         <button class="ghost" onclick="document.getElementById('subjectFormWrap').innerHTML=''">إلغاء</button>
       </div>
     </div>
   `;
+  wrap.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-async function saveSubject(id){
-  const name = document.getElementById('sjName').value.trim();
+async function saveNewSubject(){
+  const name = document.getElementById('newSubjectName').value.trim();
   if(!name){ alert('اكتب اسم العلم أولاً'); return; }
-  const payload = {
-    name,
-    status: document.getElementById('sjStatus').value,
-    total_lessons: parseInt(document.getElementById('sjTotal').value) || 0,
-    completed_lessons: parseInt(document.getElementById('sjDone').value) || 0,
-    current_lesson: document.getElementById('sjCurrent').value.trim()
-  };
-  let error;
-  if(id){
-    ({error} = await sb.from('subjects').update(payload).eq('id', id));
-  } else {
-    ({error} = await sb.from('subjects').insert(payload));
-  }
+  const {error} = await sb.from('subjects').insert({name, sort_order: 1000 + (Date.now() % 1000)});
   if(error){ alert('صار خطأ: '+error.message); return; }
   document.getElementById('subjectFormWrap').innerHTML = '';
-  await loadSubjects();
+  await loadSubjectsGrid();
 }
 
 async function deleteSubject(id){
-  if(!confirm('حذف هذا العلم من الطريق؟')) return;
+  if(!confirm('حذف هذا العلم وكل الكتب المسجّلة تحته؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
   await sb.from('subjects').delete().eq('id', id);
-  await loadSubjects();
+  await loadSubjectsGrid();
 }
 
-async function loadSubjects(){
-  const {data, error} = await sb.from('subjects').select('*').order('sort_order').order('created_at');
+async function loadSubjectsGrid(){
+  const {data:subs, error} = await sb.from('subjects').select('*').order('sort_order').order('created_at');
   const grid = document.getElementById('subjectsGrid');
   if(error){ grid.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; return; }
 
-  renderPresetRow((data||[]).map(s=>s.name));
+  const {data:books} = await sb.from('books').select('subject_id, total_lessons, completed_lessons');
 
-  if(!data || data.length===0){
-    grid.innerHTML = `<div class="empty">لسا ما أضفت أي علم. اختر من "إضافة سريعة" فوق، أو أضف علم مخصص ⤴</div>`;
-    return;
-  }
-
-  const sorted = [...data].sort((a,b)=>{
+  const sorted = [...(subs||[])].sort((a,b)=>{
     const ai = PRESET_SUBJECTS.indexOf(a.name); const bi = PRESET_SUBJECTS.indexOf(b.name);
-    if(ai===-1 && bi===-1) return 0;
+    if(ai===-1 && bi===-1) return (a.sort_order||0)-(b.sort_order||0);
     if(ai===-1) return 1;
     if(bi===-1) return -1;
     return ai-bi;
   });
 
+  if(sorted.length===0){
+    grid.innerHTML = `<div class="empty">لا توجد علوم بعد.</div>`;
+    return;
+  }
+
   grid.innerHTML = sorted.map(s=>{
-    const pct = s.total_lessons > 0 ? Math.min(100, Math.round((s.completed_lessons/s.total_lessons)*100)) : 0;
+    const subBooks = (books||[]).filter(b=>b.subject_id===s.id);
+    const total = subBooks.reduce((sum,b)=>sum+(b.total_lessons||0),0);
+    const done = subBooks.reduce((sum,b)=>sum+(b.completed_lessons||0),0);
+    const pct = total>0 ? Math.min(100, Math.round((done/total)*100)) : 0;
+    const isCustom = !PRESET_SUBJECTS.includes(s.name);
+    const dataAttr = attrEscape(JSON.stringify({id:s.id, name:s.name}));
     return `
-    <div class="subject-card status-${s.status}">
-      <button class="ghost del" onclick="deleteSubject('${s.id}')">حذف</button>
+    <div class="path-card" data-subject="${dataAttr}" onclick="openSubject(JSON.parse(this.getAttribute('data-subject')))">
+      ${isCustom ? `<button class="ghost del" onclick="event.stopPropagation();deleteSubject('${s.id}')">حذف</button>` : ''}
       <div class="sj-name">${escapeHtml(s.name)}</div>
-      <div class="sj-status">${STATUS_LABELS[s.status]}</div>
-      ${s.current_lesson ? `<div class="sj-current">📖 ${escapeHtml(s.current_lesson)}</div>` : ''}
+      <div class="sj-status">${subBooks.length} كتاب/متن</div>
       <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${pct}%"></div></div>
-      <div class="sj-progress-label">${s.completed_lessons} / ${s.total_lessons} درس (${pct}%)</div>
-      <button class="ghost" onclick='openSubjectForm(${JSON.stringify(s).replace(/'/g,"&#39;")})'>تعديل</button>
+      <div class="sj-progress-label">${done} / ${total} درس (${pct}%)</div>
     </div>`;
   }).join('');
+}
+
+function openSubject(s){
+  currentSubjectId = s.id;
+  currentSubjectName = s.name;
+  renderPathView();
+}
+
+function backToSubjects(){
+  currentSubjectId = null;
+  currentSubjectName = '';
+  renderPathView();
+}
+
+async function renderSubjectDetail(){
+  const el = document.getElementById('pathView');
+  el.innerHTML = `
+    <div class="timeline-head">
+      <div>
+        <button class="ghost" onclick="backToSubjects()">→ رجوع للطريق</button>
+        <h2 style="display:inline-block;margin-inline-start:10px">${escapeHtml(currentSubjectName)}</h2>
+      </div>
+      <button class="primary" onclick="openBookForm()">+ إضافة كتاب</button>
+    </div>
+    <div id="bookFormWrap"></div>
+    <div id="levelsWrap"><div class="empty">جاري التحميل...</div></div>
+  `;
+  await loadBooks();
+}
+
+async function loadBooks(){
+  const {data, error} = await sb.from('books').select('*').eq('subject_id', currentSubjectId).order('level').order('sort_order').order('created_at');
+  const wrap = document.getElementById('levelsWrap');
+  if(error){ wrap.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; return; }
+  if(!data || data.length===0){
+    wrap.innerHTML = `<div class="empty">لسا ما أضفت كتب لهذا العلم. أضف أول كتاب أو متن ⤴</div>`;
+    return;
+  }
+  const levels = {};
+  data.forEach(b=>{
+    const lvl = b.level || 1;
+    if(!levels[lvl]) levels[lvl] = [];
+    levels[lvl].push(b);
+  });
+  const levelNums = Object.keys(levels).map(Number).sort((a,b)=>a-b);
+  wrap.innerHTML = levelNums.map(lvl => `
+    <div class="level-section">
+      <div class="level-title">المستوى (${arabicNumeral(lvl)})</div>
+      <div class="books-grid">
+        ${levels[lvl].map(b => bookCardHtml(b)).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function bookCardHtml(b){
+  const pct = b.total_lessons > 0 ? Math.min(100, Math.round((b.completed_lessons/b.total_lessons)*100)) : 0;
+  const dataAttr = attrEscape(JSON.stringify(b));
+  return `
+    <div class="path-card status-${b.status}">
+      <button class="ghost del" onclick="deleteBook('${b.id}')">حذف</button>
+      <div class="sj-name">${escapeHtml(b.name)}</div>
+      <div class="sj-status">${STATUS_LABELS[b.status]}</div>
+      ${b.current_lesson ? `<div class="sj-current">📖 ${escapeHtml(b.current_lesson)}</div>` : ''}
+      <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${pct}%"></div></div>
+      <div class="sj-progress-label">${b.completed_lessons} / ${b.total_lessons} درس (${pct}%)</div>
+      <button class="ghost" data-book="${dataAttr}" onclick="openBookForm(JSON.parse(this.getAttribute('data-book')))">تعديل</button>
+    </div>`;
+}
+
+function openBookForm(existing){
+  const wrap = document.getElementById('bookFormWrap');
+  const b = existing || {name:'', level:1, total_lessons:0, completed_lessons:0, current_lesson:'', status:'todo', id:null};
+  wrap.innerHTML = `
+    <div class="entry-box">
+      <div class="row2">
+        <div class="field">
+          <label>اسم الكتاب أو المتن</label>
+          <input id="bkName" value="${escapeHtml(b.name)}" placeholder="مثل: الآجرومية">
+        </div>
+        <div class="field">
+          <label>المستوى</label>
+          <input id="bkLevel" type="number" min="1" value="${b.level}">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>عدد الدروس الكلي</label>
+          <input id="bkTotal" type="number" min="0" value="${b.total_lessons}">
+        </div>
+        <div class="field">
+          <label>عدد الدروس المنجزة</label>
+          <input id="bkDone" type="number" min="0" value="${b.completed_lessons}">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>الحالة</label>
+          <select id="bkStatus">
+            ${Object.entries(STATUS_LABELS).map(([k,v])=>`<option value="${k}" ${b.status===k?'selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>الدرس الحالي (اختياري)</label>
+          <input id="bkCurrent" value="${escapeHtml(b.current_lesson||'')}" placeholder="مثل: باب الحيض">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="primary" onclick="saveBook(${b.id ? `'${b.id}'` : 'null'})">حفظ</button>
+        <button class="ghost" onclick="document.getElementById('bookFormWrap').innerHTML=''">إلغاء</button>
+      </div>
+    </div>
+  `;
+  wrap.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+async function saveBook(id){
+  const name = document.getElementById('bkName').value.trim();
+  if(!name){ alert('اكتب اسم الكتاب أولاً'); return; }
+  const total = parseInt(document.getElementById('bkTotal').value) || 0;
+  let done = parseInt(document.getElementById('bkDone').value) || 0;
+  if(total > 0 && done > total) done = total;
+  const payload = {
+    subject_id: currentSubjectId,
+    name,
+    level: parseInt(document.getElementById('bkLevel').value) || 1,
+    total_lessons: total,
+    completed_lessons: done,
+    status: document.getElementById('bkStatus').value,
+    current_lesson: document.getElementById('bkCurrent').value.trim()
+  };
+  let error;
+  if(id){
+    ({error} = await sb.from('books').update(payload).eq('id', id));
+  } else {
+    ({error} = await sb.from('books').insert(payload));
+  }
+  if(error){ alert('صار خطأ: '+error.message); return; }
+  document.getElementById('bookFormWrap').innerHTML = '';
+  await loadBooks();
+}
+
+async function deleteBook(id){
+  if(!confirm('حذف هذا الكتاب؟')) return;
+  await sb.from('books').delete().eq('id', id);
+  await loadBooks();
 }
 
 async function addEntry(){
@@ -591,11 +767,23 @@ async function renderStats(currentFilterData, filter){
   const hifzCount = (all||[]).filter(e=>e.type==='hifz').length;
   const faydaCount = (all||[]).filter(e=>e.type==='fayda').length;
 
+  let pathStat = '';
+  try{
+    const {data:books, error:booksErr} = await sb.from('books').select('total_lessons, completed_lessons');
+    if(!booksErr && books){
+      const bt = books.reduce((s,b)=>s+(b.total_lessons||0),0);
+      const bd = books.reduce((s,b)=>s+(b.completed_lessons||0),0);
+      const pct = bt>0 ? Math.round((bd/bt)*100) : 0;
+      pathStat = `<div class="stat"><span class="num">${pct}%</span><span class="lbl">تقدم الطريق</span></div>`;
+    }
+  }catch(e){ pathStat = ''; }
+
   document.getElementById('statsRow').innerHTML = `
     <div class="stat"><span class="num">${total}</span><span class="lbl">إجمالي القيود</span></div>
     <div class="stat"><span class="num">${thisMonth}</span><span class="lbl">هذا الشهر</span></div>
     <div class="stat"><span class="num">${hifzCount}</span><span class="lbl">قيود حفظ</span></div>
     <div class="stat"><span class="num">${faydaCount}</span><span class="lbl">فوائد مسجّلة</span></div>
+    ${pathStat}
   `;
 }
 
