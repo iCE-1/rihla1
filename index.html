@@ -1,3 +1,34 @@
+LimeWire Logo
+
+index.html
+48.2KB
+Shared by anonymous
+Expires in 1w
+
+Download all
+
+Copy Link
+
+Add To LimeWire
+
+Report This Download
+
+Show Comments
+
+
+
+add_tags_column
+.sql
+190B
+
+Download "add_tags_column.sql"
+
+
+index
+.html
+48KB
+
+Download "index.html"
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -185,6 +216,26 @@
     font-family:'Aref Ruqaa',serif;font-size:1.1rem;color:var(--gold);
     margin-bottom:12px;padding-bottom:6px;border-bottom:1px dashed var(--rule);
   }
+
+  .tags-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .tag-chip{
+    font-size:.68rem;padding:2px 9px;border-radius:10px;
+    background:var(--paper);border:1px solid var(--rule);color:var(--ink-soft);
+  }
+  #tagSearch{padding:5px 8px;border:1px solid var(--rule);background:var(--paper);font-size:.8rem;max-width:130px;}
+
+  .focus-phase-label{text-align:center;font-size:.9rem;color:var(--ink-soft);margin-bottom:2px;}
+  .focus-display{
+    font-family:'Aref Ruqaa',serif;font-size:3.2rem;text-align:center;
+    color:var(--green-deep);margin:10px 0 18px;letter-spacing:2px;
+  }
+  .focus-controls{display:flex;gap:10px;justify-content:center;margin-top:6px;}
+  .focus-check{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--ink-soft);margin-bottom:14px;cursor:pointer;}
+  .focus-check input{width:auto;}
+  .focus-banner{
+    margin-top:16px;padding:14px;text-align:center;
+    background:var(--paper);border:1px solid var(--gold);border-radius:4px;
+  }
 </style>
 </head>
 <body>
@@ -201,13 +252,32 @@ const TYPES = [
   {id:'muraja3a', label:'مراجعة'},
   {id:'dars', label:'حضور درس'},
   {id:'qiraa', label:'قراءة'},
-  {id:'fayda', label:'فائدة'}
+  {id:'fayda', label:'فائدة'},
+  {id:'tarkiz', label:'جلسة تركيز'}
 ];
 
 let sb = null;
 let selectedType = 'hifz';
 
 function tagLabel(id){ return (TYPES.find(t=>t.id===id)||{}).label || id; }
+
+function toDateStr(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function computeStreak(dateStrings){
+  const set = new Set(dateStrings);
+  let cursor = new Date();
+  if(!set.has(toDateStr(cursor))){
+    cursor.setDate(cursor.getDate()-1);
+  }
+  let streak = 0;
+  while(set.has(toDateStr(cursor))){
+    streak++;
+    cursor.setDate(cursor.getDate()-1);
+  }
+  return streak;
+}
 
 function applyTheme(){
   const dark = localStorage.getItem('rihla_theme') === 'dark';
@@ -242,6 +312,7 @@ function renderSetup(){
   entry_date date not null,
   type text not null,
   content text not null,
+  tags text default '',
   created_at timestamp default now()
 );
 alter table entries enable row level security;
@@ -375,22 +446,27 @@ async function renderApp(){
     <div class="tabs-nav">
       <button class="tab-btn active" id="tabDaily" onclick="switchTab('daily')">السجل اليومي</button>
       <button class="tab-btn" id="tabPath" onclick="switchTab('path')">الطريق</button>
+      <button class="tab-btn" id="tabFocus" onclick="switchTab('focus')">التركيز</button>
     </div>
 
     <div id="dailyView"></div>
     <div id="pathView" style="display:none"></div>
+    <div id="focusView" style="display:none"></div>
   `;
 
   applyTheme();
   renderDailyView();
+  renderFocusView();
 }
 
 function switchTab(tab){
   if(tab==='path') currentSubjectId = null;
   document.getElementById('tabDaily').classList.toggle('active', tab==='daily');
   document.getElementById('tabPath').classList.toggle('active', tab==='path');
+  document.getElementById('tabFocus').classList.toggle('active', tab==='focus');
   document.getElementById('dailyView').style.display = tab==='daily' ? '' : 'none';
   document.getElementById('pathView').style.display = tab==='path' ? '' : 'none';
+  document.getElementById('focusView').style.display = tab==='focus' ? '' : 'none';
   if(tab==='path') renderPathView();
 }
 
@@ -406,6 +482,10 @@ function renderDailyView(){
         <label>ماذا سجّلت اليوم؟</label>
         <textarea id="contentInput" placeholder="مثال: حفظت من باب الطهارة إلى باب الحيض من متن أبي شجاع..."></textarea>
       </div>
+      <div class="field">
+        <label>الوسوم (اختياري، افصل بينها بفاصلة)</label>
+        <input id="tagsInput" placeholder="مثل: نحو، مراجعة">
+      </div>
       <div class="row2">
         <div class="field">
           <label>التاريخ</label>
@@ -419,10 +499,13 @@ function renderDailyView(){
 
     <div class="timeline-head">
       <h2>سجل الأيام</h2>
-      <select id="filterTag" onchange="loadEntries()">
-        <option value="all">الكل</option>
-        ${TYPES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('')}
-      </select>
+      <span style="display:flex;gap:8px">
+        <input id="tagSearch" placeholder="ابحث بوسم..." onkeyup="loadEntries()">
+        <select id="filterTag" onchange="loadEntries()">
+          <option value="all">الكل</option>
+          ${TYPES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('')}
+        </select>
+      </span>
     </div>
     <div id="timeline"></div>
     <div style="text-align:center;margin-top:10px">
@@ -464,6 +547,17 @@ function attrEscape(s){
 function arabicNumeral(n){
   const map = {'0':'٠','1':'١','2':'٢','3':'٣','4':'٤','5':'٥','6':'٦','7':'٧','8':'٨','9':'٩'};
   return String(n).split('').map(d=>map[d]||d).join('');
+}
+
+function normalizeDigits(str){
+  if(str === null || str === undefined) return str;
+  const eastern = '٠١٢٣٤٥٦٧٨٩';
+  const persian = '۰۱۲۳۴۵۶۷۸۹';
+  return String(str).replace(/[٠-٩۰-۹]/g, ch => {
+    let i = eastern.indexOf(ch);
+    if(i === -1) i = persian.indexOf(ch);
+    return i !== -1 ? String(i) : ch;
+  });
 }
 
 async function renderPathView(){
@@ -649,17 +743,17 @@ function openBookForm(existing){
         </div>
         <div class="field">
           <label>المستوى</label>
-          <input id="bkLevel" type="number" min="1" value="${b.level}">
+          <input id="bkLevel" type="text" inputmode="numeric" value="${b.level}">
         </div>
       </div>
       <div class="row2">
         <div class="field">
           <label>عدد الدروس الكلي</label>
-          <input id="bkTotal" type="number" min="0" value="${b.total_lessons}">
+          <input id="bkTotal" type="text" inputmode="numeric" value="${b.total_lessons}">
         </div>
         <div class="field">
           <label>عدد الدروس المنجزة</label>
-          <input id="bkDone" type="number" min="0" value="${b.completed_lessons}">
+          <input id="bkDone" type="text" inputmode="numeric" value="${b.completed_lessons}">
         </div>
       </div>
       <div class="row2">
@@ -686,13 +780,13 @@ function openBookForm(existing){
 async function saveBook(id){
   const name = document.getElementById('bkName').value.trim();
   if(!name){ alert('اكتب اسم الكتاب أولاً'); return; }
-  const total = parseInt(document.getElementById('bkTotal').value) || 0;
-  let done = parseInt(document.getElementById('bkDone').value) || 0;
+  const total = parseInt(normalizeDigits(document.getElementById('bkTotal').value)) || 0;
+  let done = parseInt(normalizeDigits(document.getElementById('bkDone').value)) || 0;
   if(total > 0 && done > total) done = total;
   const payload = {
     subject_id: currentSubjectId,
     name,
-    level: parseInt(document.getElementById('bkLevel').value) || 1,
+    level: parseInt(normalizeDigits(document.getElementById('bkLevel').value)) || 1,
     total_lessons: total,
     completed_lessons: done,
     status: document.getElementById('bkStatus').value,
@@ -715,15 +809,354 @@ async function deleteBook(id){
   await loadBooks();
 }
 
+/* ============ نظام التركيز: بومودورو ومؤقت حر ============ */
+
+const POMODORO_PHASE_LABELS = {work:'جلسة عمل', short:'استراحة قصيرة', long:'استراحة طويلة'};
+
+let timerMode = 'pomodoro';
+let timerRunning = false;
+let timerEndAt = null;
+let timerRemainingMs = 0;
+let timerInterval = null;
+let pomodoroPhase = 'work';
+let pomodoroRound = 1;
+let alarmSound = localStorage.getItem('rihla_alarm') || 'bell';
+let alarmLoopInterval = null;
+let audioCtx = null;
+
+function renderFocusView(){
+  const el = document.getElementById('focusView');
+  el.innerHTML = `
+    <div class="timeline-head"><h2>التركيز</h2></div>
+    <div class="tabs-nav" style="margin-bottom:16px">
+      <button class="tab-btn ${timerMode==='pomodoro'?'active':''}" id="modePomodoro" onclick="setTimerMode('pomodoro')">بومودورو</button>
+      <button class="tab-btn ${timerMode==='free'?'active':''}" id="modeFree" onclick="setTimerMode('free')">مؤقت حر</button>
+    </div>
+    <div class="entry-box" id="focusPanel"></div>
+    <div class="field" style="max-width:220px">
+      <label>صوت التنبيه</label>
+      <select id="alarmSelect" onchange="changeAlarmSound(this.value)">
+        <option value="bell" ${alarmSound==='bell'?'selected':''}>جرس</option>
+        <option value="chime" ${alarmSound==='chime'?'selected':''}>نغمة هادئة</option>
+        <option value="pulse" ${alarmSound==='pulse'?'selected':''}>نبضات</option>
+      </select>
+    </div>
+  `;
+  renderFocusPanel();
+}
+
+function setTimerMode(mode){
+  if(timerRunning) return;
+  timerMode = mode;
+  timerRemainingMs = 0;
+  renderFocusView();
+}
+
+function renderFocusPanel(){
+  const panel = document.getElementById('focusPanel');
+  if(!panel) return;
+  const dis = timerRunning ? 'disabled' : '';
+  if(timerMode === 'pomodoro'){
+    panel.innerHTML = `
+      <div class="row2">
+        <div class="field">
+          <label>مدة العمل (دقيقة)</label>
+          <input id="pmWork" type="text" inputmode="numeric" value="25" ${dis}>
+        </div>
+        <div class="field">
+          <label>مدة الاستراحة القصيرة (دقيقة)</label>
+          <input id="pmShort" type="text" inputmode="numeric" value="5" ${dis}>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>مدة الاستراحة الطويلة (دقيقة)</label>
+          <input id="pmLong" type="text" inputmode="numeric" value="15" ${dis}>
+        </div>
+        <div class="field">
+          <label>عدد الجولات قبل الاستراحة الطويلة</label>
+          <input id="pmRounds" type="text" inputmode="numeric" value="4" ${dis}>
+        </div>
+      </div>
+      <div class="focus-phase-label" id="phaseLabel">${POMODORO_PHASE_LABELS[pomodoroPhase]} — الجولة ${pomodoroRound}</div>
+      <div class="focus-display" id="timerDisplay">--:--</div>
+      <div class="field">
+        <label>تدرس ايش الحين؟ (اختياري، يُسجَّل بالسجل اليومي)</label>
+        <input id="focusTag" placeholder="مثل: نحو، مراجعة الآجرومية">
+      </div>
+      <label class="focus-check"><input type="checkbox" id="autoLog" checked> أضف الجلسة تلقائيًا للسجل اليومي عند الانتهاء</label>
+      <div class="focus-controls" id="focusControls"></div>
+      <div id="focusBanner"></div>
+    `;
+  } else {
+    panel.innerHTML = `
+      <div class="field" style="max-width:200px">
+        <label>عدد الدقائق</label>
+        <input id="freeMinutes" type="text" inputmode="numeric" value="20" ${dis}>
+      </div>
+      <div class="focus-display" id="timerDisplay">--:--</div>
+      <div class="field">
+        <label>تدرس ايش الحين؟ (اختياري، يُسجَّل بالسجل اليومي)</label>
+        <input id="focusTag" placeholder="مثل: قراءة، حفظ">
+      </div>
+      <label class="focus-check"><input type="checkbox" id="autoLog" checked> أضف الجلسة تلقائيًا للسجل اليومي عند الانتهاء</label>
+      <div class="focus-controls" id="focusControls"></div>
+      <div id="focusBanner"></div>
+    `;
+  }
+  renderFocusControls();
+  updateTimerDisplay();
+}
+
+function renderFocusControls(){
+  const el = document.getElementById('focusControls');
+  if(!el) return;
+  if(timerRunning){
+    el.innerHTML = `
+      <button class="ghost" onclick="pauseTimer()">إيقاف مؤقت</button>
+      <button class="ghost" onclick="resetTimer()">إعادة تعيين</button>
+    `;
+  } else if(timerRemainingMs > 0){
+    el.innerHTML = `
+      <button class="primary" onclick="resumeTimer()">استمرار</button>
+      <button class="ghost" onclick="resetTimer()">إعادة تعيين</button>
+    `;
+  } else {
+    el.innerHTML = `<button class="primary" onclick="startTimer()">ابدأ</button>`;
+  }
+}
+
+function disableFocusInputs(disabled){
+  ['pmWork','pmShort','pmLong','pmRounds','freeMinutes'].forEach(id=>{
+    const elx = document.getElementById(id);
+    if(elx) elx.disabled = disabled;
+  });
+}
+
+function getPhaseDurationMinutes(){
+  if(timerMode === 'free'){
+    const fEl = document.getElementById('freeMinutes');
+    return fEl ? (parseInt(normalizeDigits(fEl.value)) || 20) : 20;
+  }
+  if(pomodoroPhase === 'work'){
+    const e2 = document.getElementById('pmWork');
+    return e2 ? (parseInt(normalizeDigits(e2.value)) || 25) : 25;
+  }
+  if(pomodoroPhase === 'short'){
+    const e3 = document.getElementById('pmShort');
+    return e3 ? (parseInt(normalizeDigits(e3.value)) || 5) : 5;
+  }
+  const e4 = document.getElementById('pmLong');
+  return e4 ? (parseInt(normalizeDigits(e4.value)) || 15) : 15;
+}
+
+function startTimer(){
+  const minutes = getPhaseDurationMinutes();
+  if(minutes <= 0){ alert('حدد عدد دقائق أكبر من صفر'); return; }
+  timerRemainingMs = minutes * 60000;
+  const banner = document.getElementById('focusBanner');
+  if(banner) banner.innerHTML = '';
+  runTimer();
+}
+
+function resumeTimer(){
+  const banner = document.getElementById('focusBanner');
+  if(banner) banner.innerHTML = '';
+  runTimer();
+}
+
+function runTimer(){
+  try{
+    getAudioCtx();
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }catch(e){}
+  timerEndAt = Date.now() + timerRemainingMs;
+  timerRunning = true;
+  renderFocusControls();
+  disableFocusInputs(true);
+  if(timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(tickTimer, 250);
+  tickTimer();
+}
+
+function pauseTimer(){
+  timerRemainingMs = Math.max(0, timerEndAt - Date.now());
+  timerRunning = false;
+  clearInterval(timerInterval);
+  timerInterval = null;
+  renderFocusControls();
+  disableFocusInputs(false);
+}
+
+function resetTimer(){
+  clearInterval(timerInterval);
+  timerInterval = null;
+  timerRunning = false;
+  timerRemainingMs = 0;
+  timerEndAt = null;
+  stopAlarm();
+  const banner = document.getElementById('focusBanner');
+  if(banner) banner.innerHTML = '';
+  renderFocusControls();
+  disableFocusInputs(false);
+  updateTimerDisplay();
+}
+
+function tickTimer(){
+  if(!timerRunning) return;
+  const remaining = timerEndAt - Date.now();
+  if(remaining <= 0){
+    timerRemainingMs = 0;
+    updateTimerDisplay();
+    onTimerComplete();
+    return;
+  }
+  timerRemainingMs = remaining;
+  updateTimerDisplay();
+}
+
+function updateTimerDisplay(){
+  const disp = document.getElementById('timerDisplay');
+  if(!disp) return;
+  let ms = timerRemainingMs;
+  if((!ms || ms<=0) && !timerRunning){
+    ms = getPhaseDurationMinutes() * 60000;
+  }
+  const totalSec = Math.max(0, Math.ceil(ms/1000));
+  const mm = String(Math.floor(totalSec/60)).padStart(2,'0');
+  const ss = String(totalSec%60).padStart(2,'0');
+  disp.textContent = `${mm}:${ss}`;
+}
+
+async function onTimerComplete(){
+  clearInterval(timerInterval);
+  timerInterval = null;
+  timerRunning = false;
+  renderFocusControls();
+  disableFocusInputs(false);
+  playAlarm();
+
+  const minutesDone = getPhaseDurationMinutes();
+  const tagEl = document.getElementById('focusTag');
+  const tagVal = tagEl ? tagEl.value.trim() : '';
+  const autoLogEl = document.getElementById('autoLog');
+  const shouldLog = autoLogEl ? autoLogEl.checked : true;
+  const phaseLabel = timerMode === 'pomodoro' ? POMODORO_PHASE_LABELS[pomodoroPhase] : 'مؤقت حر';
+
+  if(shouldLog && (timerMode === 'free' || pomodoroPhase === 'work')){
+    await logFocusSession(minutesDone, phaseLabel, tagVal);
+  }
+
+  const banner = document.getElementById('focusBanner');
+  if(banner){
+    banner.innerHTML = `
+      <div class="focus-banner">
+        <div>⏰ انتهى الوقت! (${escapeHtml(phaseLabel)})</div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:10px">
+          <button class="ghost" onclick="stopAlarm()">إيقاف الصوت</button>
+          ${timerMode==='pomodoro' ? `<button class="primary" onclick="advancePomodoro()">التالي</button>` : `<button class="primary" onclick="resetTimer()">تم</button>`}
+        </div>
+      </div>
+    `;
+  }
+}
+
+async function logFocusSession(minutes, phaseLabel, tag){
+  try{
+    await sb.from('entries').insert({
+      entry_date: toDateStr(new Date()),
+      type: 'tarkiz',
+      content: `جلسة تركيز (${phaseLabel}): ${minutes} دقيقة`,
+      tags: tag || ''
+    });
+  }catch(e){ /* لا نعطّل المؤقت لو فشل التسجيل التلقائي */ }
+}
+
+function advancePomodoro(){
+  const roundsEl = document.getElementById('pmRounds');
+  const rounds = roundsEl ? (parseInt(normalizeDigits(roundsEl.value)) || 4) : 4;
+  if(pomodoroPhase === 'work'){
+    if(pomodoroRound >= rounds){
+      pomodoroPhase = 'long';
+      pomodoroRound = 1;
+    } else {
+      pomodoroPhase = 'short';
+    }
+  } else {
+    if(pomodoroPhase === 'short'){ pomodoroRound++; }
+    pomodoroPhase = 'work';
+  }
+  timerRemainingMs = 0;
+  renderFocusPanel();
+}
+
+function changeAlarmSound(val){
+  alarmSound = val;
+  localStorage.setItem('rihla_alarm', val);
+}
+
+function getAudioCtx(){
+  if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+  return audioCtx;
+}
+
+function beep(freq, duration, delay){
+  try{
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime + delay);
+    gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + delay + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + duration + 0.05);
+  }catch(e){}
+}
+
+function playSoundOnce(){
+  if(alarmSound === 'bell'){
+    beep(880, 0.35, 0);
+    beep(660, 0.35, 0.4);
+  } else if(alarmSound === 'chime'){
+    beep(523.25, 0.5, 0);
+    beep(659.25, 0.5, 0.15);
+    beep(783.99, 0.6, 0.3);
+  } else {
+    beep(700, 0.12, 0);
+    beep(700, 0.12, 0.2);
+    beep(700, 0.12, 0.4);
+  }
+}
+
+function playAlarm(){
+  playSoundOnce();
+  let count = 1;
+  alarmLoopInterval = setInterval(()=>{
+    if(count >= 4){ clearInterval(alarmLoopInterval); alarmLoopInterval = null; return; }
+    playSoundOnce();
+    count++;
+  }, 1800);
+}
+
+function stopAlarm(){
+  if(alarmLoopInterval){ clearInterval(alarmLoopInterval); alarmLoopInterval = null; }
+}
+
 async function addEntry(){
   const content = document.getElementById('contentInput').value.trim();
   const date = document.getElementById('dateInput').value;
+  const tags = document.getElementById('tagsInput').value.trim();
   if(!content){ alert('اكتب ما تريد تسجيله أولاً'); return; }
   const {error} = await sb.from('entries').insert({
-    entry_date: date, type: selectedType, content
+    entry_date: date, type: selectedType, content, tags
   });
   if(error){ alert('صار خطأ: '+error.message); return; }
   document.getElementById('contentInput').value = '';
+  document.getElementById('tagsInput').value = '';
   await loadEntries();
 }
 
@@ -735,13 +1168,18 @@ async function deleteEntry(id){
 
 async function loadEntries(){
   const filter = document.getElementById('filterTag') ? document.getElementById('filterTag').value : 'all';
+  const tagSearch = document.getElementById('tagSearch') ? document.getElementById('tagSearch').value.trim().toLowerCase() : '';
   let query = sb.from('entries').select('*').order('entry_date', {ascending:false}).order('created_at', {ascending:false});
   if(filter !== 'all') query = query.eq('type', filter);
-  const {data, error} = await query;
+  let {data, error} = await query;
   const timeline = document.getElementById('timeline');
   if(error){ timeline.innerHTML = `<div class="empty">تعذّر تحميل السجل: ${error.message}</div>`; return; }
 
   renderStats(data, filter);
+
+  if(tagSearch){
+    data = (data||[]).filter(e => (e.tags||'').toLowerCase().includes(tagSearch));
+  }
 
   if(!data || data.length===0){
     timeline.innerHTML = `<div class="empty">لا توجد قيود بعد. ابدأ رحلتك بتسجيل أول فائدة أو حفظ اليوم ⤴</div>`;
@@ -752,6 +1190,7 @@ async function loadEntries(){
       <button class="ghost del" onclick="deleteEntry('${e.id}')">حذف</button>
       <div class="date">${formatDate(e.entry_date)} <span class="tag">${tagLabel(e.type)}</span></div>
       <p>${escapeHtml(e.content)}</p>
+      ${e.tags ? `<div class="tags-row">${e.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
     </div>
   `).join('');
 }
@@ -766,6 +1205,7 @@ async function renderStats(currentFilterData, filter){
   }).length;
   const hifzCount = (all||[]).filter(e=>e.type==='hifz').length;
   const faydaCount = (all||[]).filter(e=>e.type==='fayda').length;
+  const streak = computeStreak((all||[]).map(e=>e.entry_date));
 
   let pathStat = '';
   try{
@@ -781,6 +1221,7 @@ async function renderStats(currentFilterData, filter){
   document.getElementById('statsRow').innerHTML = `
     <div class="stat"><span class="num">${total}</span><span class="lbl">إجمالي القيود</span></div>
     <div class="stat"><span class="num">${thisMonth}</span><span class="lbl">هذا الشهر</span></div>
+    <div class="stat"><span class="num">🔥 ${streak}</span><span class="lbl">الاستمرارية (أيام)</span></div>
     <div class="stat"><span class="num">${hifzCount}</span><span class="lbl">قيود حفظ</span></div>
     <div class="stat"><span class="num">${faydaCount}</span><span class="lbl">فوائد مسجّلة</span></div>
     ${pathStat}
@@ -807,3 +1248,10 @@ init();
 </script>
 </body>
 </html>
+
+Previous
+Next
+
+Download
+
+Close Modal
