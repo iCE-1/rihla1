@@ -637,6 +637,16 @@ async function loadSubjectsGrid(){
     const subBooks = (books||[]).filter(b=>b.subject_id===s.id);
     const pctList = subBooks.map(b=>bookProgressPct(b).pct);
     const avgPct = pctList.length ? Math.round(pctList.reduce((a,c)=>a+c,0)/pctList.length) : 0;
+    const matnBooks = subBooks.filter(b=>(b.kind||'matn')==='matn');
+    const pageBooks = subBooks.filter(b=>(b.kind||'matn')==='book');
+    const lessonsDone = matnBooks.reduce((s2,b)=>s2+(b.completed_lessons||0),0);
+    const lessonsTotal = matnBooks.reduce((s2,b)=>s2+(b.total_lessons||0),0);
+    const pagesDone = pageBooks.reduce((s2,b)=>s2+(b.completed_pages||0),0);
+    const pagesTotal = pageBooks.reduce((s2,b)=>s2+(b.total_pages||0),0);
+    const breakdown = [
+      matnBooks.length ? `${lessonsDone}/${lessonsTotal} درس` : '',
+      pageBooks.length ? `${pagesDone}/${pagesTotal} صفحة` : ''
+    ].filter(Boolean).join(' · ');
     const isCustom = !PRESET_SUBJECTS.includes(s.name);
     const dataAttr = attrEscape(JSON.stringify({id:s.id, name:s.name}));
     return `
@@ -645,7 +655,7 @@ async function loadSubjectsGrid(){
       <div class="sj-name">${escapeHtml(s.name)}</div>
       <div class="sj-status">${subBooks.length} كتاب/متن</div>
       <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${avgPct}%"></div></div>
-      <div class="sj-progress-label">متوسط الإنجاز: ${avgPct}%</div>
+      <div class="sj-progress-label">متوسط الإنجاز: ${avgPct}%${breakdown ? ' — ' + breakdown : ''}</div>
     </div>`;
   }).join('');
 }
@@ -715,7 +725,7 @@ function bookCardHtml(b){
       <button class="ghost del" onclick="deleteBook('${b.id}')">حذف</button>
       <div class="sj-name">${escapeHtml(b.name)}</div>
       <div class="sj-status">${STATUS_LABELS[b.status]} · ${kindLabel}</div>
-      ${b.current_lesson ? `<div class="sj-current">${kind==='book'?'📄':'📖'} ${escapeHtml(b.current_lesson)}</div>` : ''}
+      ${b.current_lesson ? `<div class="sj-current">📝 ${escapeHtml(b.current_lesson)}</div>` : ''}
       <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${prog.pct}%"></div></div>
       <div class="sj-progress-label">${prog.done} / ${prog.total} ${prog.unit} (${prog.pct}%)</div>
       <button class="ghost" data-book="${dataAttr}" onclick="openBookForm(JSON.parse(this.getAttribute('data-book')))">تعديل</button>
@@ -755,8 +765,8 @@ function openBookForm(existing){
           </select>
         </div>
         <div class="field">
-          <label>${kind==='book' ? 'الصفحة الحالية (اختياري)' : 'الدرس الحالي (اختياري)'}</label>
-          <input id="bkCurrent" value="${escapeHtml(b.current_lesson||'')}" placeholder="${kind==='book' ? 'مثل: صفحة ١٢٠' : 'مثل: باب الحيض'}">
+          <label>ملاحظات (اختياري)</label>
+          <input id="bkCurrent" value="${escapeHtml(b.current_lesson||'')}" placeholder="أي ملاحظة تحب تسجلها">
         </div>
       </div>
       <div style="display:flex;gap:10px">
