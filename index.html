@@ -311,8 +311,12 @@ create table books (
   subject_id uuid references subjects(id) on delete cascade not null,
   name text not null,
   level int not null default 1,
+  kind text not null default 'matn',
   total_lessons int not null default 0,
   completed_lessons int not null default 0,
+  total_pages int not null default 0,
+  completed_pages int not null default 0,
+  volumes int not null default 1,
   current_lesson text default '',
   status text not null default 'todo',
   sort_order int default 0,
@@ -504,6 +508,7 @@ const PRESET_SUBJECTS = ['نحو','صرف','بلاغة','منطق','أصول ف�
 
 let currentSubjectId = null;
 let currentSubjectName = '';
+let editingBookId = null;
 
 function attrEscape(s){
   return String(s)
@@ -517,6 +522,19 @@ function attrEscape(s){
 function arabicNumeral(n){
   const map = {'0':'٠','1':'١','2':'٢','3':'٣','4':'٤','5':'٥','6':'٦','7':'٧','8':'٨','9':'٩'};
   return String(n).split('').map(d=>map[d]||d).join('');
+}
+
+function bookProgressPct(b){
+  if((b.kind || 'matn') === 'book'){
+    const total = b.total_pages || 0;
+    const done = b.completed_pages || 0;
+    const pct = total>0 ? Math.min(100, Math.round((done/total)*100)) : 0;
+    return {pct, done, total, unit:'صفحة'};
+  }
+  const total = b.total_lessons || 0;
+  const done = b.completed_lessons || 0;
+  const pct = total>0 ? Math.min(100, Math.round((done/total)*100)) : 0;
+  return {pct, done, total, unit:'درس'};
 }
 
 function normalizeDigits(str){
@@ -600,7 +618,7 @@ async function loadSubjectsGrid(){
   const grid = document.getElementById('subjectsGrid');
   if(error){ grid.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; return; }
 
-  const {data:books} = await sb.from('books').select('subject_id, total_lessons, completed_lessons');
+  const {data:books} = await sb.from('books').select('subject_id, kind, total_lessons, completed_lessons, total_pages, completed_pages');
 
   const sorted = [...(subs||[])].sort((a,b)=>{
     const ai = PRESET_SUBJECTS.indexOf(a.name); const bi = PRESET_SUBJECTS.indexOf(b.name);
@@ -617,9 +635,8 @@ async function loadSubjectsGrid(){
 
   grid.innerHTML = sorted.map(s=>{
     const subBooks = (books||[]).filter(b=>b.subject_id===s.id);
-    const total = subBooks.reduce((sum,b)=>sum+(b.total_lessons||0),0);
-    const done = subBooks.reduce((sum,b)=>sum+(b.completed_lessons||0),0);
-    const pct = total>0 ? Math.min(100, Math.round((done/total)*100)) : 0;
+    const pctList = subBooks.map(b=>bookProgressPct(b).pct);
+    const avgPct = pctList.length ? Math.round(pctList.reduce((a,c)=>a+c,0)/pctList.length) : 0;
     const isCustom = !PRESET_SUBJECTS.includes(s.name);
     const dataAttr = attrEscape(JSON.stringify({id:s.id, name:s.name}));
     return `
@@ -627,8 +644,8 @@ async function loadSubjectsGrid(){
       ${isCustom ? `<button class="ghost del" onclick="event.stopPropagation();deleteSubject('${s.id}')">حذف</button>` : ''}
       <div class="sj-name">${escapeHtml(s.name)}</div>
       <div class="sj-status">${subBooks.length} كتاب/متن</div>
-      <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${pct}%"></div></div>
-      <div class="sj-progress-label">${done} / ${total} درس (${pct}%)</div>
+      <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${avgPct}%"></div></div>
+      <div class="sj-progress-label">متوسط الإنجاز: ${avgPct}%</div>
     </div>`;
   }).join('');
 }
@@ -687,23 +704,29 @@ async function loadBooks(){
 }
 
 function bookCardHtml(b){
-  const pct = b.total_lessons > 0 ? Math.min(100, Math.round((b.completed_lessons/b.total_lessons)*100)) : 0;
+  const kind = b.kind || 'matn';
+  const prog = bookProgressPct(b);
   const dataAttr = attrEscape(JSON.stringify(b));
+  const kindLabel = kind === 'book'
+    ? `كتاب${(b.volumes||1) > 1 ? ' — ' + arabicNumeral(b.volumes) + ' مجلدات' : ''}`
+    : 'متن';
   return `
     <div class="path-card status-${b.status}">
       <button class="ghost del" onclick="deleteBook('${b.id}')">حذف</button>
       <div class="sj-name">${escapeHtml(b.name)}</div>
-      <div class="sj-status">${STATUS_LABELS[b.status]}</div>
-      ${b.current_lesson ? `<div class="sj-current">📖 ${escapeHtml(b.current_lesson)}</div>` : ''}
-      <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${pct}%"></div></div>
-      <div class="sj-progress-label">${b.completed_lessons} / ${b.total_lessons} درس (${pct}%)</div>
+      <div class="sj-status">${STATUS_LABELS[b.status]} · ${kindLabel}</div>
+      ${b.current_lesson ? `<div class="sj-current">${kind==='book'?'📄':'📖'} ${escapeHtml(b.current_lesson)}</div>` : ''}
+      <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${prog.pct}%"></div></div>
+      <div class="sj-progress-label">${prog.done} / ${prog.total} ${prog.unit} (${prog.pct}%)</div>
       <button class="ghost" data-book="${dataAttr}" onclick="openBookForm(JSON.parse(this.getAttribute('data-book')))">تعديل</button>
     </div>`;
 }
 
 function openBookForm(existing){
+  editingBookId = existing ? existing.id : null;
   const wrap = document.getElementById('bookFormWrap');
-  const b = existing || {name:'', level:1, total_lessons:0, completed_lessons:0, current_lesson:'', status:'todo', id:null};
+  const b = existing || {name:'', level:1, kind:'matn', total_lessons:0, completed_lessons:0, total_pages:0, completed_pages:0, volumes:1, current_lesson:'', status:'todo'};
+  const kind = b.kind || 'matn';
   wrap.innerHTML = `
     <div class="entry-box">
       <div class="row2">
@@ -716,16 +739,14 @@ function openBookForm(existing){
           <input id="bkLevel" type="text" inputmode="numeric" value="${b.level}">
         </div>
       </div>
-      <div class="row2">
-        <div class="field">
-          <label>عدد الدروس الكلي</label>
-          <input id="bkTotal" type="text" inputmode="numeric" value="${b.total_lessons}">
-        </div>
-        <div class="field">
-          <label>عدد الدروس المنجزة</label>
-          <input id="bkDone" type="text" inputmode="numeric" value="${b.completed_lessons}">
-        </div>
+      <div class="field">
+        <label>نوع المدخل</label>
+        <select id="bkKind" onchange="changeBookKind(this.value)">
+          <option value="matn" ${kind==='matn'?'selected':''}>متن / دروس</option>
+          <option value="book" ${kind==='book'?'selected':''}>كتاب (صفحات)</option>
+        </select>
       </div>
+      <div id="bkProgressFields"></div>
       <div class="row2">
         <div class="field">
           <label>الحالة</label>
@@ -734,34 +755,106 @@ function openBookForm(existing){
           </select>
         </div>
         <div class="field">
-          <label>الدرس الحالي (اختياري)</label>
-          <input id="bkCurrent" value="${escapeHtml(b.current_lesson||'')}" placeholder="مثل: باب الحيض">
+          <label>${kind==='book' ? 'الصفحة الحالية (اختياري)' : 'الدرس الحالي (اختياري)'}</label>
+          <input id="bkCurrent" value="${escapeHtml(b.current_lesson||'')}" placeholder="${kind==='book' ? 'مثل: صفحة ١٢٠' : 'مثل: باب الحيض'}">
         </div>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="primary" onclick="saveBook(${b.id ? `'${b.id}'` : 'null'})">حفظ</button>
-        <button class="ghost" onclick="document.getElementById('bookFormWrap').innerHTML=''">إلغاء</button>
+        <button class="primary" onclick="saveBook()">حفظ</button>
+        <button class="ghost" onclick="cancelBookForm()">إلغاء</button>
       </div>
     </div>
   `;
+  renderBookProgressFields(kind, b);
   wrap.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-async function saveBook(id){
+function renderBookProgressFields(kind, b){
+  const el = document.getElementById('bkProgressFields');
+  if(!el) return;
+  if(kind === 'book'){
+    el.innerHTML = `
+      <div class="row2">
+        <div class="field">
+          <label>عدد الصفحات الكلي</label>
+          <input id="bkTotalPages" type="text" inputmode="numeric" value="${b.total_pages||0}">
+        </div>
+        <div class="field">
+          <label>عدد الصفحات المقروءة</label>
+          <input id="bkDonePages" type="text" inputmode="numeric" value="${b.completed_pages||0}">
+        </div>
+      </div>
+      <div class="field" style="max-width:220px">
+        <label>عدد المجلدات</label>
+        <input id="bkVolumes" type="text" inputmode="numeric" value="${b.volumes||1}">
+      </div>
+    `;
+  } else {
+    el.innerHTML = `
+      <div class="row2">
+        <div class="field">
+          <label>عدد الدروس الكلي</label>
+          <input id="bkTotal" type="text" inputmode="numeric" value="${b.total_lessons||0}">
+        </div>
+        <div class="field">
+          <label>عدد الدروس المنجزة</label>
+          <input id="bkDone" type="text" inputmode="numeric" value="${b.completed_lessons||0}">
+        </div>
+      </div>
+    `;
+  }
+}
+
+function changeBookKind(newKind){
+  const draft = {
+    id: editingBookId,
+    name: document.getElementById('bkName').value,
+    level: document.getElementById('bkLevel').value,
+    kind: newKind,
+    status: document.getElementById('bkStatus').value,
+    current_lesson: document.getElementById('bkCurrent').value,
+    total_lessons: 0, completed_lessons: 0, total_pages: 0, completed_pages: 0, volumes: 1
+  };
+  openBookForm(draft);
+}
+
+function cancelBookForm(){
+  document.getElementById('bookFormWrap').innerHTML = '';
+  editingBookId = null;
+}
+
+async function saveBook(){
+  const id = editingBookId;
   const name = document.getElementById('bkName').value.trim();
   if(!name){ alert('اكتب اسم الكتاب أولاً'); return; }
-  const total = parseInt(normalizeDigits(document.getElementById('bkTotal').value)) || 0;
-  let done = parseInt(normalizeDigits(document.getElementById('bkDone').value)) || 0;
-  if(total > 0 && done > total) done = total;
+  const kind = document.getElementById('bkKind').value;
   const payload = {
     subject_id: currentSubjectId,
     name,
     level: parseInt(normalizeDigits(document.getElementById('bkLevel').value)) || 1,
-    total_lessons: total,
-    completed_lessons: done,
+    kind,
     status: document.getElementById('bkStatus').value,
     current_lesson: document.getElementById('bkCurrent').value.trim()
   };
+  if(kind === 'book'){
+    const totalP = parseInt(normalizeDigits(document.getElementById('bkTotalPages').value)) || 0;
+    let doneP = parseInt(normalizeDigits(document.getElementById('bkDonePages').value)) || 0;
+    if(totalP > 0 && doneP > totalP) doneP = totalP;
+    payload.total_pages = totalP;
+    payload.completed_pages = doneP;
+    payload.volumes = parseInt(normalizeDigits(document.getElementById('bkVolumes').value)) || 1;
+    payload.total_lessons = 0;
+    payload.completed_lessons = 0;
+  } else {
+    const totalL = parseInt(normalizeDigits(document.getElementById('bkTotal').value)) || 0;
+    let doneL = parseInt(normalizeDigits(document.getElementById('bkDone').value)) || 0;
+    if(totalL > 0 && doneL > totalL) doneL = totalL;
+    payload.total_lessons = totalL;
+    payload.completed_lessons = doneL;
+    payload.total_pages = 0;
+    payload.completed_pages = 0;
+    payload.volumes = 1;
+  }
   let error;
   if(id){
     ({error} = await sb.from('books').update(payload).eq('id', id));
@@ -770,6 +863,7 @@ async function saveBook(id){
   }
   if(error){ alert('صار خطأ: '+error.message); return; }
   document.getElementById('bookFormWrap').innerHTML = '';
+  editingBookId = null;
   await loadBooks();
 }
 
@@ -1179,11 +1273,10 @@ async function renderStats(currentFilterData, filter){
 
   let pathStat = '';
   try{
-    const {data:books, error:booksErr} = await sb.from('books').select('total_lessons, completed_lessons');
+    const {data:books, error:booksErr} = await sb.from('books').select('kind, total_lessons, completed_lessons, total_pages, completed_pages');
     if(!booksErr && books){
-      const bt = books.reduce((s,b)=>s+(b.total_lessons||0),0);
-      const bd = books.reduce((s,b)=>s+(b.completed_lessons||0),0);
-      const pct = bt>0 ? Math.round((bd/bt)*100) : 0;
+      const pctList = books.map(b=>bookProgressPct(b).pct);
+      const pct = pctList.length ? Math.round(pctList.reduce((a,c)=>a+c,0)/pctList.length) : 0;
       pathStat = `<div class="stat"><span class="num">${pct}%</span><span class="lbl">تقدم الطريق</span></div>`;
     }
   }catch(e){ pathStat = ''; }
