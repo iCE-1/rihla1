@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -283,6 +282,7 @@ function renderSetup(){
   type text not null,
   content text not null,
   tags text default '',
+  focus_minutes int,
   created_at timestamp default now()
 );
 alter table entries enable row level security;
@@ -1141,7 +1141,8 @@ async function logFocusSession(minutes, phaseLabel, tag){
       entry_date: toDateStr(new Date()),
       type: 'tarkiz',
       content: `جلسة تركيز (${phaseLabel}): ${minutes} دقيقة`,
-      tags: tag || ''
+      tags: tag || '',
+      focus_minutes: minutes
     });
   }catch(e){ /* لا نعطّل المؤقت لو فشل التسجيل التلقائي */ }
 }
@@ -1270,16 +1271,23 @@ async function loadEntries(){
 }
 
 async function renderStats(currentFilterData, filter){
-  const {data:all} = await sb.from('entries').select('type, entry_date');
+  const {data:all} = await sb.from('entries').select('type, entry_date, focus_minutes');
   const total = all ? all.length : 0;
   const now = new Date();
-  const thisMonth = (all||[]).filter(e=>{
+  const thisMonthEntries = (all||[]).filter(e=>{
     const d = new Date(e.entry_date);
     return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
-  }).length;
+  });
+  const thisMonth = thisMonthEntries.length;
   const hifzCount = (all||[]).filter(e=>e.type==='hifz').length;
-  const faydaCount = (all||[]).filter(e=>e.type==='fayda').length;
   const streak = computeStreak((all||[]).map(e=>e.entry_date));
+
+  const focusThisMonth = thisMonthEntries.filter(e=>e.type==='tarkiz');
+  const focusSessionsCount = focusThisMonth.length;
+  const focusMinutesTotal = focusThisMonth.reduce((s,e)=>s+(e.focus_minutes||0),0);
+  const focusTimeLabel = focusMinutesTotal >= 60
+    ? `${Math.floor(focusMinutesTotal/60)}س ${focusMinutesTotal%60}د`
+    : `${focusMinutesTotal}د`;
 
   let pathStat = '';
   try{
@@ -1296,7 +1304,8 @@ async function renderStats(currentFilterData, filter){
     <div class="stat"><span class="num">${thisMonth}</span><span class="lbl">هذا الشهر</span></div>
     <div class="stat"><span class="num">🔥 ${streak}</span><span class="lbl">الاستمرارية (أيام)</span></div>
     <div class="stat"><span class="num">${hifzCount}</span><span class="lbl">قيود حفظ</span></div>
-    <div class="stat"><span class="num">${faydaCount}</span><span class="lbl">فوائد مسجّلة</span></div>
+    <div class="stat"><span class="num">${focusSessionsCount}</span><span class="lbl">جلسات تركيز (الشهر)</span></div>
+    <div class="stat"><span class="num">${focusTimeLabel}</span><span class="lbl">وقت التركيز (الشهر)</span></div>
     ${pathStat}
   `;
 }
