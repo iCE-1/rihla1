@@ -136,6 +136,7 @@
   }
   .day-entry p{margin:4px 0;font-size:.88rem;line-height:1.7;}
   .day-entry .del{position:absolute;left:10px;top:10px;}
+  .day-entry .edit{position:absolute;left:10px;top:43px;}
 
   .empty{
     text-align:center;padding:50px 20px;color:var(--ink-soft);
@@ -257,6 +258,8 @@ let sb = null;
 let monthlySummaryVisible = localStorage.getItem('rihla_monthly_summary') !== 'hidden';
 let collapsedTagGroups = new Set();
 try { collapsedTagGroups = new Set(JSON.parse(localStorage.getItem('rihla_collapsed_tag_groups') || '[]')); } catch(e) {}
+let editingEntryId = null;
+let entriesById = new Map();
 
 function tagLabel(id){ return id === 'tarkiz' ? 'جلسة تركيز' : 'قيد'; }
 
@@ -496,8 +499,11 @@ function renderDailyView(){
           <input type="date" id="dateInput">
         </div>
         <div class="field" style="display:flex;align-items:flex-end;">
-          <button class="primary" onclick="addEntry()" style="width:100%">حفظ في السجل</button>
+          <button class="primary" id="saveEntryButton" onclick="addEntry()" style="width:100%">حفظ في السجل</button>
         </div>
+      </div>
+      <div id="cancelEditWrap" style="display:none;text-align:left;margin-top:-5px">
+        <button class="ghost" onclick="cancelEditEntry()">إلغاء التعديل</button>
       </div>
     </div>
 
@@ -1380,14 +1386,40 @@ async function addEntry(){
     if(!existingTags.includes(lessonTag)) existingTags.push(lessonTag);
     tags = existingTags.join(', ');
   }
-  const {error} = await sb.from('entries').insert({
-    entry_date: date, type: 'entry', content, tags
-  });
+  const payload = { entry_date: date, content, tags };
+  const {error} = editingEntryId
+    ? await sb.from('entries').update(payload).eq('id', editingEntryId)
+    : await sb.from('entries').insert({ ...payload, type: 'entry' });
   if(error){ alert('صار خطأ: '+error.message); return; }
-  document.getElementById('contentInput').value = '';
+  cancelEditEntry();
+  await loadEntries();
+}
+
+function startEditEntry(id){
+  const entry = entriesById.get(id);
+  if(!entry) return;
+  editingEntryId = id;
+  const lessonTag = splitTags(entry.tags).find(tag => /^درس\s*:\s*(.+)$/i.test(tag));
+  const lessonMatch = lessonTag && lessonTag.match(/^درس\s*:\s*(.+)$/i);
+  document.getElementById('contentInput').value = entry.content || '';
+  document.getElementById('dateInput').value = entry.entry_date || '';
+  document.getElementById('tagsInput').value = splitTags(entry.tags).filter(tag => tag !== lessonTag).join(', ');
+  document.getElementById('lessonNameInput').value = lessonMatch ? lessonMatch[1] : '';
+  document.getElementById('saveEntryButton').textContent = 'حفظ التعديلات';
+  document.getElementById('cancelEditWrap').style.display = '';
+  document.querySelector('.entry-box').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function cancelEditEntry(){
+  editingEntryId = null;
+  const content = document.getElementById('contentInput');
+  if(!content) return;
+  content.value = '';
   document.getElementById('tagsInput').value = '';
   document.getElementById('lessonNameInput').value = '';
-  await loadEntries();
+  document.getElementById('dateInput').valueAsDate = new Date();
+  document.getElementById('saveEntryButton').textContent = 'حفظ في السجل';
+  document.getElementById('cancelEditWrap').style.display = 'none';
 }
 
 async function deleteEntry(id){
@@ -1402,6 +1434,7 @@ async function loadEntries(){
   let {data, error} = await query;
   const timeline = document.getElementById('timeline');
   if(error){ timeline.innerHTML = `<div class="empty">تعذّر تحميل السجل: ${error.message}</div>`; return; }
+  entriesById = new Map((data||[]).map(entry => [entry.id, entry]));
 
   renderStats();
 
@@ -1424,6 +1457,7 @@ async function loadEntries(){
   const renderEntry = e => `
     <div class="day-entry">
       <button class="ghost del" onclick="deleteEntry('${e.id}')">حذف</button>
+      <button class="ghost edit" onclick="startEditEntry('${e.id}')">تعديل</button>
       <div class="date">${formatDate(e.entry_date)} <span class="tag">${tagLabel(e.type)}</span></div>
       <p>${escapeHtml(e.content)}</p>
       ${e.tags ? `<div class="tags-row">${splitTags(e.tags).map(t=>`<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
