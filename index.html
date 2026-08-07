@@ -1435,13 +1435,25 @@ function splitTags(value){
   return (value||'').split(/[,،]/).map(tag=>tag.trim()).filter(Boolean);
 }
 
+function normalizeLessonKey(value){
+  return value
+    .normalize('NFKC')
+    .replace(/[ـًٌٍَُِّْ]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/[‐‑–—―-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleLowerCase('ar');
+}
+
 function lessonKeys(entries){
   const keys = new Set();
   (entries||[]).forEach(entry => {
     splitTags(entry.tags).forEach(tag => {
       // لا يكفي وسم «درس» وحده: لا بد من اسم/رقم ثابت حتى نميّز الدرس الجديد عن جلسة متابعة له.
       const match = tag.match(/^درس\s*:\s*(.+)$/i);
-      if(match && match[1].trim()) keys.add(match[1].trim().toLocaleLowerCase('ar'));
+      if(match && match[1].trim()) keys.add(normalizeLessonKey(match[1]));
     });
   });
   return keys;
@@ -1489,7 +1501,7 @@ async function renderStats(){
         <div class="monthly-summary-content">
           <div>
             درست <b>${lessonsCount}</b> ${lessonsCount===1 ? 'درسًا' : 'دروس'}، ومجموع وقت التركيز <b>${focusTimeLabel}</b>.
-            <div style="font-size:.75rem;color:var(--ink-soft);margin-top:5px">يُحتسب الدرس بالوسم المنظّم: درس: اسم أو رقم الدرس.</div>
+            <div style="font-size:.75rem;color:var(--ink-soft);margin-top:5px">يُحتسب الدرس بالوسم المنظّم: درس: اسم أو رقم الدرس. أعد استخدام الاسم نفسه عند متابعة الدرس.</div>
           </div>
         </div>
       </section>`;
