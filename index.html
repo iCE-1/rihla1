@@ -210,12 +210,20 @@
   }
   .tag-group{margin-bottom:22px;}
   .tag-group-head{
-    display:flex;align-items:center;justify-content:space-between;gap:10px;
-    margin-bottom:9px;padding:0 4px 8px;border-bottom:1px dashed var(--rule);
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin-bottom:9px;padding:0 4px 8px;border:0;border-bottom:1px dashed var(--rule);
+    background:transparent;color:var(--ink);font-family:'Tajawal',sans-serif;cursor:pointer;text-align:right;
   }
   .tag-group-head h3{margin:0;font-family:'Aref Ruqaa',serif;font-size:1.05rem;color:var(--green-deep);}
+  .tag-group-head:hover h3{color:var(--gold);}
   .tag-group-count{font-size:.72rem;color:var(--ink-soft);}
   .tag-group .day-entry{margin-bottom:8px;}
+  .tag-group-chevron{color:var(--gold);font-size:1.05rem;transition:transform .2s ease;}
+  .tag-group-entries{display:grid;grid-template-rows:1fr;transition:grid-template-rows .22s ease;}
+  .tag-group-entries > div{overflow:hidden;}
+  .tag-group.collapsed .tag-group-entries{grid-template-rows:0fr;}
+  .tag-group.collapsed .tag-group-chevron{transform:rotate(-90deg);}
+  .tag-group.collapsed .tag-group-head{margin-bottom:0;}
   .monthly-summary-card{
     background:var(--paper-dark);border:1px solid var(--rule);border-right:4px solid var(--gold);
     margin-bottom:22px;overflow:hidden;
@@ -247,6 +255,8 @@ const LS_KEY_KEY = 'rihla_supabase_key';
 
 let sb = null;
 let monthlySummaryVisible = localStorage.getItem('rihla_monthly_summary') !== 'hidden';
+let collapsedTagGroups = new Set();
+try { collapsedTagGroups = new Set(JSON.parse(localStorage.getItem('rihla_collapsed_tag_groups') || '[]')); } catch(e) {}
 
 function tagLabel(id){ return id === 'tarkiz' ? 'جلسة تركيز' : 'قيد'; }
 
@@ -1421,12 +1431,12 @@ async function loadEntries(){
   `;
 
   timeline.innerHTML = [...groupedEntries.entries()].map(([tag, entries]) => `
-    <section class="tag-group">
-      <div class="tag-group-head">
+    <section class="tag-group${collapsedTagGroups.has(tag) ? ' collapsed' : ''}">
+      <button type="button" class="tag-group-head" data-tag="${escapeHtml(tag)}" onclick="toggleTagGroup(this)" aria-expanded="${!collapsedTagGroups.has(tag)}">
         <h3>${tag === 'بدون وسم' ? 'بدون وسم' : '#'+escapeHtml(tag)}</h3>
-        <span class="tag-group-count">${entries.length} ${entries.length===1 ? 'قيد' : 'قيود'}</span>
-      </div>
-      ${entries.map(renderEntry).join('')}
+        <span style="display:flex;align-items:center;gap:8px"><span class="tag-group-count">${entries.length} ${entries.length===1 ? 'قيد' : 'قيود'}</span><span class="tag-group-chevron">⌄</span></span>
+      </button>
+      <div class="tag-group-entries"><div>${entries.map(renderEntry).join('')}</div></div>
     </section>
   `).join('');
 }
@@ -1470,6 +1480,17 @@ function toggleMonthlySummary(){
   monthlySummaryVisible = !monthlySummaryVisible;
   localStorage.setItem('rihla_monthly_summary', monthlySummaryVisible ? 'visible' : 'hidden');
   setMonthlySummaryVisibility();
+}
+
+function toggleTagGroup(button){
+  const tag = button.dataset.tag;
+  const group = button.closest('.tag-group');
+  const isCollapsed = !group.classList.contains('collapsed');
+  group.classList.toggle('collapsed', isCollapsed);
+  button.setAttribute('aria-expanded', String(!isCollapsed));
+  if(isCollapsed) collapsedTagGroups.add(tag);
+  else collapsedTagGroups.delete(tag);
+  localStorage.setItem('rihla_collapsed_tag_groups', JSON.stringify([...collapsedTagGroups]));
 }
 
 async function renderStats(){
