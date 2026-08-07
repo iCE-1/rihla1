@@ -208,6 +208,32 @@
     background:var(--paper-dark);border:1px solid var(--rule);border-right:4px solid var(--gold);
     padding:12px 16px;margin-bottom:20px;font-size:.88rem;line-height:1.8;
   }
+  .tag-group{margin-bottom:22px;}
+  .tag-group-head{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin-bottom:9px;padding:0 4px 8px;border-bottom:1px dashed var(--rule);
+  }
+  .tag-group-head h3{margin:0;font-family:'Aref Ruqaa',serif;font-size:1.05rem;color:var(--green-deep);}
+  .tag-group-count{font-size:.72rem;color:var(--ink-soft);}
+  .tag-group .day-entry{margin-bottom:8px;}
+  .monthly-summary-card{
+    background:var(--paper-dark);border:1px solid var(--rule);border-right:4px solid var(--gold);
+    margin-bottom:22px;overflow:hidden;
+  }
+  .monthly-summary-toggle{
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:13px 16px;background:transparent;border:none;color:var(--ink);cursor:pointer;
+    font-family:'Tajawal',sans-serif;text-align:right;
+  }
+  .monthly-summary-toggle:hover{background:rgba(173,135,55,.07);}
+  .monthly-summary-title{font-family:'Aref Ruqaa',serif;font-size:1.08rem;color:var(--green-deep);}
+  .monthly-summary-brief{font-size:.78rem;color:var(--ink-soft);margin-inline-start:auto;}
+  .summary-chevron{font-size:1.1rem;color:var(--gold);transition:transform .25s ease;}
+  .monthly-summary-content{display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s ease;}
+  .monthly-summary-content > div{overflow:hidden;padding:0 16px 14px;font-size:.88rem;line-height:1.9;}
+  .monthly-summary-card.collapsed .monthly-summary-content{grid-template-rows:0fr;}
+  .monthly-summary-card.collapsed .summary-chevron{transform:rotate(-90deg);}
+  .monthly-summary-card.collapsed .monthly-summary-content > div{padding-top:0;padding-bottom:0;}
 </style>
 </head>
 <body>
@@ -448,6 +474,7 @@ function renderDailyView(){
       <div class="field">
         <label>الوسوم (اختياري، افصل بينها بفاصلة)</label>
         <input id="tagsInput" placeholder="مثل: فائدة، مراجعة، نحو">
+        <div style="font-size:.72rem;color:var(--ink-soft);margin-top:5px">يظهر القيد تحت الوسم الأول في سجل الأيام، مع بقاء بقية الوسوم ظاهرة داخله.</div>
       </div>
       <div class="field">
         <label>اسم أو رقم الدرس (اختياري — يُحسب الدرس مرة واحدة ولو تكرر في عدة جلسات)</label>
@@ -1376,13 +1403,31 @@ async function loadEntries(){
     timeline.innerHTML = `<div class="empty">لا توجد قيود بعد. ابدأ رحلتك بتسجيل أول فائدة أو حفظ اليوم ⤴</div>`;
     return;
   }
-  timeline.innerHTML = data.map(e=>`
+  const groupedEntries = new Map();
+  data.forEach(entry => {
+    // أول وسم هو الوسم الرئيسي: يضع كل قيد في مجموعة واحدة من دون تكرار.
+    const mainTag = splitTags(entry.tags)[0] || 'بدون وسم';
+    if(!groupedEntries.has(mainTag)) groupedEntries.set(mainTag, []);
+    groupedEntries.get(mainTag).push(entry);
+  });
+
+  const renderEntry = e => `
     <div class="day-entry">
       <button class="ghost del" onclick="deleteEntry('${e.id}')">حذف</button>
       <div class="date">${formatDate(e.entry_date)} <span class="tag">${tagLabel(e.type)}</span></div>
       <p>${escapeHtml(e.content)}</p>
       ${e.tags ? `<div class="tags-row">${splitTags(e.tags).map(t=>`<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
     </div>
+  `;
+
+  timeline.innerHTML = [...groupedEntries.entries()].map(([tag, entries]) => `
+    <section class="tag-group">
+      <div class="tag-group-head">
+        <h3>${tag === 'بدون وسم' ? 'بدون وسم' : '#'+escapeHtml(tag)}</h3>
+        <span class="tag-group-count">${entries.length} ${entries.length===1 ? 'قيد' : 'قيود'}</span>
+      </div>
+      ${entries.map(renderEntry).join('')}
+    </section>
   `).join('');
 }
 
@@ -1403,10 +1448,10 @@ function lessonKeys(entries){
 }
 
 function setMonthlySummaryVisibility(){
-  const body = document.getElementById('monthlySummaryBody');
+  const card = document.getElementById('monthlySummaryCard');
   const btn = document.getElementById('monthlySummaryToggle');
-  if(body) body.hidden = !monthlySummaryVisible;
-  if(btn) btn.textContent = monthlySummaryVisible ? 'إخفاء الملخص الشهري' : 'إظهار الملخص الشهري';
+  if(card) card.classList.toggle('collapsed', !monthlySummaryVisible);
+  if(btn) btn.setAttribute('aria-expanded', String(monthlySummaryVisible));
 }
 
 function toggleMonthlySummary(){
@@ -1435,12 +1480,19 @@ async function renderStats(){
     const monthLabel = now.toLocaleDateString('ar-SA', {month:'long', year:'numeric'});
     const lessonsCount = lessonKeys(thisMonthEntries).size;
     summaryEl.innerHTML = `
-      <button class="ghost" id="monthlySummaryToggle" onclick="toggleMonthlySummary()"></button>
-      <div class="monthly-summary" id="monthlySummaryBody">
-        <b>ملخص ${monthLabel}</b><br>
-        درست <b>${lessonsCount}</b> ${lessonsCount===1 ? 'درسًا' : 'دروس'}، ومجموع وقت التركيز <b>${focusTimeLabel}</b>.
-        <div style="font-size:.75rem;color:var(--ink-soft);margin-top:5px">يُحتسب الدرس بالوسم المنظّم: درس: اسم أو رقم الدرس.</div>
-      </div>`;
+      <section class="monthly-summary-card" id="monthlySummaryCard">
+        <button class="monthly-summary-toggle" id="monthlySummaryToggle" onclick="toggleMonthlySummary()" aria-expanded="true">
+          <span class="monthly-summary-title">ملخص ${monthLabel}</span>
+          <span class="monthly-summary-brief">${lessonsCount} دروس · ${focusTimeLabel} تركيز</span>
+          <span class="summary-chevron">⌄</span>
+        </button>
+        <div class="monthly-summary-content">
+          <div>
+            درست <b>${lessonsCount}</b> ${lessonsCount===1 ? 'درسًا' : 'دروس'}، ومجموع وقت التركيز <b>${focusTimeLabel}</b>.
+            <div style="font-size:.75rem;color:var(--ink-soft);margin-top:5px">يُحتسب الدرس بالوسم المنظّم: درس: اسم أو رقم الدرس.</div>
+          </div>
+        </div>
+      </section>`;
     setMonthlySummaryVisibility();
   }
 }
