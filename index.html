@@ -366,7 +366,25 @@ create policy "read own books" on books for select using (auth.uid() = user_id);
 create policy "insert own books" on books for insert with check (auth.uid() = user_id);
 create policy "update own books" on books for update using (auth.uid() = user_id);
 create policy "delete own books" on books for delete using (auth.uid() = user_id);
-grant select, insert, update, delete on books to authenticated;</pre>
+grant select, insert, update, delete on books to authenticated;
+
+create table srs_units (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null default auth.uid(),
+  title text not null,
+  start_date date not null,
+  duration_kind text not null default '3m',
+  duration_days int default 90,
+  current_stage int not null default 0,
+  tags text default '',
+  created_at timestamp default now()
+);
+alter table srs_units enable row level security;
+create policy "read own srs" on srs_units for select using (auth.uid() = user_id);
+create policy "insert own srs" on srs_units for insert with check (auth.uid() = user_id);
+create policy "update own srs" on srs_units for update using (auth.uid() = user_id);
+create policy "delete own srs" on srs_units for delete using (auth.uid() = user_id);
+grant select, insert, update, delete on srs_units to authenticated;</pre>
     <ol start="4">
       <li>من Authentication ← Providers، تأكد إن Email مفعّل (مفعّل افتراضيًا)</li>
       <li>من Authentication ← Settings، عطّل "Confirm email" إذا تبي تدخل مباشرة بدون تفعيل بريد (اختياري، تقدر تسويها لاحقًا بأمان أكثر)</li>
@@ -458,11 +476,13 @@ async function renderApp(){
       <button class="tab-btn active" id="tabDaily" onclick="switchTab('daily')">السجل اليومي</button>
       <button class="tab-btn" id="tabPath" onclick="switchTab('path')">الطريق</button>
       <button class="tab-btn" id="tabFocus" onclick="switchTab('focus')">التركيز</button>
+      <button class="tab-btn" id="tabSrs" onclick="switchTab('srs')">المراجعة</button>
     </div>
 
     <div id="dailyView"></div>
     <div id="pathView" style="display:none"></div>
     <div id="focusView" style="display:none"></div>
+    <div id="srsView" style="display:none"></div>
   `;
 
   applyTheme();
@@ -475,10 +495,13 @@ function switchTab(tab){
   document.getElementById('tabDaily').classList.toggle('active', tab==='daily');
   document.getElementById('tabPath').classList.toggle('active', tab==='path');
   document.getElementById('tabFocus').classList.toggle('active', tab==='focus');
+  document.getElementById('tabSrs').classList.toggle('active', tab==='srs');
   document.getElementById('dailyView').style.display = tab==='daily' ? '' : 'none';
   document.getElementById('pathView').style.display = tab==='path' ? '' : 'none';
   document.getElementById('focusView').style.display = tab==='focus' ? '' : 'none';
+  document.getElementById('srsView').style.display = tab==='srs' ? '' : 'none';
   if(tab==='path') renderPathView();
+  if(tab==='srs') renderSrsView();
 }
 
 function renderDailyView(){
@@ -537,6 +560,7 @@ const PRESET_SUBJECTS = ['نحو','صرف','بلاغة','منطق','أصول ف�
 let currentSubjectId = null;
 let currentSubjectName = '';
 let editingBookId = null;
+let editingSrsId = null;
 
 function attrEscape(s){
   return String(s)
@@ -1389,6 +1413,226 @@ function stopAlarm(){
   if(alarmLoopInterval){ clearInterval(alarmLoopInterval); alarmLoopInterval = null; }
 }
 
+/* ============ نظام التكرار المتباعد (المراجعة) ============ */
+
+const SRS_DURATION_LABELS = {'3m':'٣ أشهر', '6m':'٦ أشهر', '1y':'سنة', 'custom':'مخصصة'};
+
+function srsTotalDays(kind, customDays){
+  if(kind === '3m') return 90;
+  if(kind === '6m') return 180;
+  if(kind === '1y') return 365;
+  return (customDays && customDays > 0) ? customDays : 90;
+}
+
+function srsSchedule(kind, customDays){
+  const total = srsTotalDays(kind, customDays);
+  const ratios = [0.011, 0.033, 0.078, 0.156, 0.333, 0.667, 1.0];
+  const days = ratios.map(r => Math.max(1, Math.round(r * total)));
+  return [...new Set(days)].sort((a,b)=>a-b);
+}
+
+function srsNextReviewInfo(unit){
+  const schedule = srsSchedule(unit.duration_kind, unit.duration_days);
+  const stage = unit.current_stage || 0;
+  if(stage >= schedule.length){
+    return {done:true, total:schedule.length};
+  }
+  const startDate = new Date(unit.start_date);
+  const nextDate = new Date(startDate);
+  nextDate.setDate(nextDate.getDate() + schedule[stage]);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  nextDate.setHours(0,0,0,0);
+  const diffDays = Math.round((nextDate - today) / 86400000);
+  return {done:false, nextDate, stageNum:stage+1, total:schedule.length, diffDays};
+}
+
+async function renderSrsView(){
+  const el = document.getElementById('srsView');
+  el.innerHTML = `
+    <div class="timeline-head">
+      <h2>المراجعة (تكرار متباعد)</h2>
+      <button class="primary" onclick="openSrsForm()">+ إضافة وحدة تعليمية</button>
+    </div>
+    <div id="srsFormWrap"></div>
+    <div id="srsDueBanner"></div>
+    <div id="srsList" class="subjects-grid"><div class="empty">جاري التحميل...</div></div>
+  `;
+  await loadSrsUnits();
+}
+
+function openSrsForm(existing){
+  editingSrsId = existing ? existing.id : null;
+  const wrap = document.getElementById('srsFormWrap');
+  const u = existing || {title:'', start_date: toDateStr(new Date()), duration_kind:'3m', duration_days:90, current_stage:0, tags:''};
+  const kind = u.duration_kind || '3m';
+  const schedule = srsSchedule(kind, u.duration_days);
+  wrap.innerHTML = `
+    <div class="entry-box">
+      <div class="field">
+        <label>اسم الوحدة التعليمية</label>
+        <input id="srsTitle" value="${escapeHtml(u.title)}" placeholder="مثل: حفظ سورة البقرة، متن الآجرومية">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>تاريخ بداية الوحدة</label>
+          <input type="date" id="srsStartDate" value="${u.start_date}">
+        </div>
+        <div class="field">
+          <label>مدة التكرار</label>
+          <select id="srsDurationKind" onchange="changeSrsDurationKind(this.value)">
+            ${Object.entries(SRS_DURATION_LABELS).map(([k,v])=>`<option value="${k}" ${kind===k?'selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div id="srsCustomDaysWrap"></div>
+      <div class="field">
+        <label>وين وصلت؟ (لو عندك وحدة قديمة من مكان ثاني)</label>
+        <select id="srsCurrentStage">
+          <option value="0" ${(u.current_stage||0)===0?'selected':''}>لسا ما بدأت أي مراجعة</option>
+          ${schedule.map((d,i)=>`<option value="${i+1}" ${(u.current_stage||0)===i+1?'selected':''}>خلصت المراجعة رقم ${i+1} (من ${schedule.length})</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>الوسوم (اختياري)</label>
+        <input id="srsTags" value="${escapeHtml(u.tags||'')}" placeholder="مثل: قرآن، حفظ">
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="primary" onclick="saveSrsUnit()">حفظ</button>
+        <button class="ghost" onclick="cancelSrsForm()">إلغاء</button>
+      </div>
+    </div>
+  `;
+  renderSrsCustomDaysField(kind, u.duration_days);
+  wrap.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function renderSrsCustomDaysField(kind, days){
+  const elx = document.getElementById('srsCustomDaysWrap');
+  if(!elx) return;
+  if(kind === 'custom'){
+    elx.innerHTML = `
+      <div class="field" style="max-width:220px">
+        <label>عدد الأيام الكلي</label>
+        <input id="srsCustomDays" type="text" inputmode="numeric" value="${days && days>0 ? days : 90}">
+      </div>
+    `;
+  } else {
+    elx.innerHTML = '';
+  }
+}
+
+function changeSrsDurationKind(newKind){
+  const draft = {
+    id: editingSrsId,
+    title: document.getElementById('srsTitle').value,
+    start_date: document.getElementById('srsStartDate').value,
+    duration_kind: newKind,
+    duration_days: newKind==='custom' ? 90 : srsTotalDays(newKind),
+    current_stage: 0,
+    tags: document.getElementById('srsTags').value
+  };
+  openSrsForm(draft);
+}
+
+function cancelSrsForm(){
+  document.getElementById('srsFormWrap').innerHTML = '';
+  editingSrsId = null;
+}
+
+async function saveSrsUnit(){
+  const id = editingSrsId;
+  const title = document.getElementById('srsTitle').value.trim();
+  if(!title){ alert('اكتب اسم الوحدة التعليمية أولاً'); return; }
+  const startDate = document.getElementById('srsStartDate').value;
+  if(!startDate){ alert('حدد تاريخ بداية الوحدة'); return; }
+  const kind = document.getElementById('srsDurationKind').value;
+  const customDaysEl = document.getElementById('srsCustomDays');
+  const durationDays = kind === 'custom'
+    ? (parseInt(normalizeDigits(customDaysEl ? customDaysEl.value : '90')) || 90)
+    : srsTotalDays(kind);
+  const stage = parseInt(document.getElementById('srsCurrentStage').value) || 0;
+  const payload = {
+    title,
+    start_date: startDate,
+    duration_kind: kind,
+    duration_days: durationDays,
+    current_stage: stage,
+    tags: document.getElementById('srsTags').value.trim()
+  };
+  let error;
+  if(id){
+    ({error} = await sb.from('srs_units').update(payload).eq('id', id));
+  } else {
+    ({error} = await sb.from('srs_units').insert(payload));
+  }
+  if(error){ alert('صار خطأ: '+error.message); return; }
+  document.getElementById('srsFormWrap').innerHTML = '';
+  editingSrsId = null;
+  await loadSrsUnits();
+}
+
+async function deleteSrsUnit(id){
+  if(!confirm('حذف هذه الوحدة التعليمية من نظام المراجعة؟')) return;
+  await sb.from('srs_units').delete().eq('id', id);
+  await loadSrsUnits();
+}
+
+async function markSrsReviewed(id, currentStage){
+  const {error} = await sb.from('srs_units').update({current_stage: currentStage + 1}).eq('id', id);
+  if(error){ alert('صار خطأ: '+error.message); return; }
+  await loadSrsUnits();
+}
+
+async function loadSrsUnits(){
+  const {data, error} = await sb.from('srs_units').select('*').order('created_at');
+  const list = document.getElementById('srsList');
+  const banner = document.getElementById('srsDueBanner');
+  if(error){ list.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; if(banner) banner.innerHTML=''; return; }
+
+  if(!data || data.length===0){
+    list.innerHTML = `<div class="empty">لسا ما أضفت أي وحدة تعليمية. ابدأ بإضافة أول وحدة ⤴</div>`;
+    if(banner) banner.innerHTML = '';
+    return;
+  }
+
+  const infos = data.map(u => ({unit:u, info: srsNextReviewInfo(u)}));
+  const dueCount = infos.filter(x => !x.info.done && x.info.diffDays <= 0).length;
+  if(banner){
+    banner.innerHTML = dueCount > 0
+      ? `<div class="monthly-summary">🔔 عندك <b>${dueCount}</b> وحدة تحتاج مراجعة اليوم أو متأخرة.</div>`
+      : '';
+  }
+
+  list.innerHTML = infos.map(({unit, info})=>{
+    const dataAttr = attrEscape(JSON.stringify(unit));
+    let statusHtml, cardClass;
+    if(info.done){
+      statusHtml = `<div class="sj-status">✅ اكتملت كل المراجعات (${info.total})</div>`;
+      cardClass = 'status-complete';
+    } else {
+      const dateLabel = formatDate(toDateStr(info.nextDate));
+      let dueLabel;
+      if(info.diffDays < 0) dueLabel = `متأخرة ${Math.abs(info.diffDays)} يوم`;
+      else if(info.diffDays === 0) dueLabel = 'اليوم';
+      else dueLabel = `بعد ${info.diffDays} يوم`;
+      cardClass = info.diffDays <= 0 ? 'status-todo' : 'status-in_progress';
+      statusHtml = `<div class="sj-status">المراجعة ${info.stageNum} من ${info.total} — ${dueLabel} (${dateLabel})</div>`;
+    }
+    return `
+    <div class="path-card ${cardClass}">
+      <button class="ghost del" onclick="deleteSrsUnit('${unit.id}')">حذف</button>
+      <div class="sj-name">${escapeHtml(unit.title)}</div>
+      ${statusHtml}
+      ${unit.tags ? `<div class="tags-row">${unit.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        ${!info.done ? `<button class="primary" onclick="markSrsReviewed('${unit.id}', ${unit.current_stage||0})">تمت المراجعة ✓</button>` : ''}
+        <button class="ghost" data-srs="${dataAttr}" onclick="openSrsForm(JSON.parse(this.getAttribute('data-srs')))">تعديل</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 async function addEntry(){
   const content = document.getElementById('contentInput').value.trim();
   const date = document.getElementById('dateInput').value;
@@ -1634,6 +1878,6 @@ function resetCreds(){
 
 init();
 </script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
+
 </body>
 </html>
