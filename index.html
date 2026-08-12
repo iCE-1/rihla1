@@ -375,6 +375,7 @@ create table srs_units (
   start_date date not null,
   duration_kind text not null default '3m',
   duration_days int default 90,
+  review_count int default 7,
   current_stage int not null default 0,
   tags text default '',
   created_at timestamp default now()
@@ -1424,15 +1425,19 @@ function srsTotalDays(kind, customDays){
   return (customDays && customDays > 0) ? customDays : 90;
 }
 
-function srsSchedule(kind, customDays){
+function srsSchedule(kind, customDays, reviewCount){
   const total = srsTotalDays(kind, customDays);
-  const ratios = [0.011, 0.033, 0.078, 0.156, 0.333, 0.667, 1.0];
-  const days = ratios.map(r => Math.max(1, Math.round(r * total)));
+  const n = Math.max(1, reviewCount || 7);
+  const days = [];
+  for(let i=1;i<=n;i++){
+    const ratio = Math.pow(i/n, 1.6);
+    days.push(Math.max(1, Math.round(ratio * total)));
+  }
   return [...new Set(days)].sort((a,b)=>a-b);
 }
 
 function srsNextReviewInfo(unit){
-  const schedule = srsSchedule(unit.duration_kind, unit.duration_days);
+  const schedule = srsSchedule(unit.duration_kind, unit.duration_days, unit.review_count);
   const stage = unit.current_stage || 0;
   if(stage >= schedule.length){
     return {done:true, total:schedule.length};
@@ -1464,9 +1469,10 @@ async function renderSrsView(){
 function openSrsForm(existing){
   editingSrsId = existing ? existing.id : null;
   const wrap = document.getElementById('srsFormWrap');
-  const u = existing || {title:'', start_date: toDateStr(new Date()), duration_kind:'3m', duration_days:90, current_stage:0, tags:''};
+  const u = existing || {title:'', start_date: toDateStr(new Date()), duration_kind:'3m', duration_days:90, current_stage:0, review_count:7, tags:''};
   const kind = u.duration_kind || '3m';
-  const schedule = srsSchedule(kind, u.duration_days);
+  const reviewCount = u.review_count || 7;
+  const schedule = srsSchedule(kind, u.duration_days, reviewCount);
   wrap.innerHTML = `
     <div class="entry-box">
       <div class="field">
@@ -1486,6 +1492,10 @@ function openSrsForm(existing){
         </div>
       </div>
       <div id="srsCustomDaysWrap"></div>
+      <div class="field" style="max-width:220px">
+        <label>عدد المراجعات خلال هذي المدة</label>
+        <input id="srsReviewCount" type="text" inputmode="numeric" value="${reviewCount}" onchange="changeSrsReviewCount(this.value)">
+      </div>
       <div class="field">
         <label>وين وصلت؟ (لو عندك وحدة قديمة من مكان ثاني)</label>
         <select id="srsCurrentStage">
@@ -1514,7 +1524,7 @@ function renderSrsCustomDaysField(kind, days){
     elx.innerHTML = `
       <div class="field" style="max-width:220px">
         <label>عدد الأيام الكلي</label>
-        <input id="srsCustomDays" type="text" inputmode="numeric" value="${days && days>0 ? days : 90}">
+        <input id="srsCustomDays" type="text" inputmode="numeric" value="${days && days>0 ? days : 90}" onchange="changeSrsCustomDays(this.value)">
       </div>
     `;
   } else {
@@ -1530,6 +1540,37 @@ function changeSrsDurationKind(newKind){
     duration_kind: newKind,
     duration_days: newKind==='custom' ? 90 : srsTotalDays(newKind),
     current_stage: 0,
+    review_count: parseInt(normalizeDigits(document.getElementById('srsReviewCount').value)) || 7,
+    tags: document.getElementById('srsTags').value
+  };
+  openSrsForm(draft);
+}
+
+function changeSrsCustomDays(val){
+  const draft = {
+    id: editingSrsId,
+    title: document.getElementById('srsTitle').value,
+    start_date: document.getElementById('srsStartDate').value,
+    duration_kind: 'custom',
+    duration_days: parseInt(normalizeDigits(val)) || 90,
+    current_stage: 0,
+    review_count: parseInt(normalizeDigits(document.getElementById('srsReviewCount').value)) || 7,
+    tags: document.getElementById('srsTags').value
+  };
+  openSrsForm(draft);
+}
+
+function changeSrsReviewCount(val){
+  const kind = document.getElementById('srsDurationKind').value;
+  const customDaysEl = document.getElementById('srsCustomDays');
+  const draft = {
+    id: editingSrsId,
+    title: document.getElementById('srsTitle').value,
+    start_date: document.getElementById('srsStartDate').value,
+    duration_kind: kind,
+    duration_days: kind==='custom' ? (parseInt(normalizeDigits(customDaysEl ? customDaysEl.value : '90')) || 90) : srsTotalDays(kind),
+    current_stage: 0,
+    review_count: parseInt(normalizeDigits(val)) || 7,
     tags: document.getElementById('srsTags').value
   };
   openSrsForm(draft);
@@ -1552,12 +1593,14 @@ async function saveSrsUnit(){
     ? (parseInt(normalizeDigits(customDaysEl ? customDaysEl.value : '90')) || 90)
     : srsTotalDays(kind);
   const stage = parseInt(document.getElementById('srsCurrentStage').value) || 0;
+  const reviewCount = parseInt(normalizeDigits(document.getElementById('srsReviewCount').value)) || 7;
   const payload = {
     title,
     start_date: startDate,
     duration_kind: kind,
     duration_days: durationDays,
     current_stage: stage,
+    review_count: reviewCount,
     tags: document.getElementById('srsTags').value.trim()
   };
   let error;
@@ -1626,7 +1669,8 @@ async function loadSrsUnits(){
       ${statusHtml}
       ${unit.tags ? `<div class="tags-row">${unit.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        ${!info.done ? `<button class="primary" onclick="markSrsReviewed('${unit.id}', ${unit.current_stage||0})">تمت المراجعة ✓</button>` : ''}
+        ${(!info.done && info.diffDays <= 0) ? `<button class="primary" onclick="markSrsReviewed('${unit.id}', ${unit.current_stage||0})">تمت المراجعة ✓</button>` : ''}
+        ${(!info.done && info.diffDays > 0) ? `<span style="font-size:.78rem;color:var(--ink-soft);align-self:center">🔒 تُفتح بعد ${info.diffDays} يوم</span>` : ''}
         <button class="ghost" data-srs="${dataAttr}" onclick="openSrsForm(JSON.parse(this.getAttribute('data-srs')))">تعديل</button>
       </div>
     </div>`;
