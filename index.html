@@ -209,15 +209,6 @@
     background:var(--paper-dark);border:1px solid var(--rule);border-right:4px solid var(--gold);
     padding:12px 16px;margin-bottom:20px;font-size:.88rem;line-height:1.8;
   }
-  .srs-schedule-list{
-    margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule);
-    display:flex;flex-direction:column;gap:6px;
-  }
-  .srs-schedule-row{
-    display:flex;justify-content:space-between;font-size:.8rem;color:var(--ink);
-  }
-  .srs-schedule-row.srs-done{color:var(--ink-soft);text-decoration:line-through;}
-  .srs-schedule-countdown{color:var(--ink-soft);}
   .tag-group{margin-bottom:22px;}
   .tag-group-head{
     width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -255,6 +246,22 @@
   .monthly-summary-card.collapsed .monthly-summary-content{grid-template-rows:0fr;}
   .monthly-summary-card.collapsed .summary-chevron{transform:rotate(-90deg);}
   .monthly-summary-card.collapsed .monthly-summary-content > div{padding-top:0;padding-bottom:0;}
+
+  /* الكتب التي أدرسها الآن (الواجهة الرئيسية) */
+  .current-books{margin-bottom:26px;}
+  .cb-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .cb-pct{font-family:'Aref Ruqaa',serif;font-size:1.35rem;color:var(--gold);}
+  .cb-sub{font-size:.72rem;color:var(--ink-soft);margin-bottom:8px;}
+  .field select{cursor:pointer;}
+  .hint{font-size:.72rem;color:var(--ink-soft);margin-top:5px;}
+
+  /* إشعارات صغيرة */
+  .toast-wrap{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:50;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:calc(100% - 32px);max-width:440px;}
+  .toast{background:var(--green-deep);color:var(--paper);padding:10px 16px;border-radius:4px;font-size:.85rem;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;text-align:center;}
+  .toast.show{opacity:1;transform:none;}
+  .toast.warn{background:var(--red);}
+  button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
 </style>
 </head>
 <body>
@@ -377,24 +384,11 @@ create policy "update own books" on books for update using (auth.uid() = user_id
 create policy "delete own books" on books for delete using (auth.uid() = user_id);
 grant select, insert, update, delete on books to authenticated;
 
-create table srs_units (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null default auth.uid(),
-  title text not null,
-  start_date date not null,
-  duration_kind text not null default '3m',
-  duration_days int default 90,
-  review_count int default 7,
-  current_stage int not null default 0,
-  tags text default '',
-  created_at timestamp default now()
-);
-alter table srs_units enable row level security;
-create policy "read own srs" on srs_units for select using (auth.uid() = user_id);
-create policy "insert own srs" on srs_units for insert with check (auth.uid() = user_id);
-create policy "update own srs" on srs_units for update using (auth.uid() = user_id);
-create policy "delete own srs" on srs_units for delete using (auth.uid() = user_id);
-grant select, insert, update, delete on srs_units to authenticated;</pre>
+alter table entries add column if not exists book_id uuid references books(id) on delete set null;
+alter table entries add column if not exists lesson_number int;
+create policy "update own" on entries for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+grant update on entries to authenticated;
+notify pgrst, 'reload schema';</pre>
     <ol start="4">
       <li>من Authentication ← Providers، تأكد إن Email مفعّل (مفعّل افتراضيًا)</li>
       <li>من Authentication ← Settings، عطّل "Confirm email" إذا تبي تدخل مباشرة بدون تفعيل بريد (اختياري، تقدر تسويها لاحقًا بأمان أكثر)</li>
@@ -468,6 +462,7 @@ async function signOut(){
 }
 
 async function renderApp(){
+  await refreshBooksCache();
   const app = document.getElementById('app');
   app.innerHTML = `
     <header class="top">
@@ -486,13 +481,11 @@ async function renderApp(){
       <button class="tab-btn active" id="tabDaily" onclick="switchTab('daily')">السجل اليومي</button>
       <button class="tab-btn" id="tabPath" onclick="switchTab('path')">الطريق</button>
       <button class="tab-btn" id="tabFocus" onclick="switchTab('focus')">التركيز</button>
-      <button class="tab-btn" id="tabSrs" onclick="switchTab('srs')">المراجعة</button>
     </div>
 
     <div id="dailyView"></div>
     <div id="pathView" style="display:none"></div>
     <div id="focusView" style="display:none"></div>
-    <div id="srsView" style="display:none"></div>
   `;
 
   applyTheme();
@@ -502,21 +495,147 @@ async function renderApp(){
 
 function switchTab(tab){
   if(tab==='path') currentSubjectId = null;
-  document.getElementById('tabDaily').classList.toggle('active', tab==='daily');
-  document.getElementById('tabPath').classList.toggle('active', tab==='path');
-  document.getElementById('tabFocus').classList.toggle('active', tab==='focus');
-  document.getElementById('tabSrs').classList.toggle('active', tab==='srs');
-  document.getElementById('dailyView').style.display = tab==='daily' ? '' : 'none';
-  document.getElementById('pathView').style.display = tab==='path' ? '' : 'none';
-  document.getElementById('focusView').style.display = tab==='focus' ? '' : 'none';
-  document.getElementById('srsView').style.display = tab==='srs' ? '' : 'none';
+  const tabs = {daily:['tabDaily','dailyView'], path:['tabPath','pathView'], focus:['tabFocus','focusView']};
+  Object.entries(tabs).forEach(([k,[btn,view]])=>{
+    document.getElementById(btn).classList.toggle('active', k===tab);
+    document.getElementById(view).style.display = k===tab ? '' : 'none';
+  });
   if(tab==='path') renderPathView();
-  if(tab==='srs') renderSrsView();
+  if(tab==='daily'){ loadEntries(); syncBooksUi(); }
+  if(tab==='focus') syncBooksUi();
+}
+
+/* ============ الكتب: ذاكرة مؤقتة + ربط بالسجل والتركيز ============ */
+
+let booksCache = [];
+let entriesCache = [];
+
+async function refreshBooksCache(){
+  let res = await sb.from('books').select('*, subjects(name)').order('level').order('sort_order').order('created_at');
+  if(res.error) res = await sb.from('books').select('*').order('level').order('sort_order').order('created_at');
+  if(!res.error) booksCache = res.data || [];
+  return res.error;
+}
+
+async function syncBooksUi(){
+  await refreshBooksCache();
+  renderCurrentBooks();
+  refreshBookSelects();
+}
+
+function lessonUnit(b){ return (b.kind || 'matn') === 'book' ? 'صفحة' : 'درس'; }
+
+function bookOptionsHtml(selectedId){
+  const rank = {in_progress:0, todo:1, complete:2};
+  const list = booksCache
+    .filter(b => b.status !== 'complete' || b.id === selectedId)
+    .sort((a,b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9));
+  const groups = new Map();
+  list.forEach(b => {
+    const name = (b.subjects && b.subjects.name) || 'أخرى';
+    if(!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(b);
+  });
+  return `<option value="">— بدون كتاب —</option>` + [...groups.entries()].map(([name, items]) =>
+    `<optgroup label="${attrEscape(name)}">${items.map(b =>
+      `<option value="${b.id}" ${b.id===selectedId?'selected':''}>${escapeHtml(b.name)}${b.status==='in_progress' ? ' (أدرسه الحين)' : ''}</option>`
+    ).join('')}</optgroup>`
+  ).join('');
+}
+
+function refreshBookSelects(){
+  const e = document.getElementById('entryBook');
+  if(e){ const v = e.value; e.innerHTML = bookOptionsHtml(v); e.value = v; onEntryBookChange(); }
+  const f = document.getElementById('focusBook');
+  if(f){
+    f.innerHTML = bookOptionsHtml(focusBookId);
+    f.value = focusBookId;
+    if(f.value !== focusBookId) focusBookId = '';
+    updateFocusLinkUi();
+  }
+}
+
+function renderCurrentBooks(){
+  const el = document.getElementById('currentBooks');
+  if(!el) return;
+  const current = booksCache.filter(b => b.status === 'in_progress');
+  el.innerHTML = `
+    <div class="timeline-head"><h2>أدرسه الحين</h2></div>
+    ${current.length ? `<div class="books-grid">${current.map(b => {
+      const p = bookProgressPct(b);
+      const subject = (b.subjects && b.subjects.name) || '';
+      return `
+      <div class="path-card status-in_progress">
+        <div class="cb-row"><div class="sj-name" style="margin-bottom:0">${escapeHtml(b.name)}</div><div class="cb-pct">${p.pct}%</div></div>
+        <div class="cb-sub">${escapeHtml(subject)}</div>
+        <div class="sj-progress-bar" style="margin-bottom:0"><div class="sj-progress-fill" style="width:${p.pct}%"></div></div>
+      </div>`;
+    }).join('')}</div>` : `<div class="empty" style="padding:26px 20px">لا يوجد كتاب تدرسه الآن. من «الطريق» غيّر حالة كتاب إلى «أدرسه الحين» ليظهر هنا.</div>`}
+  `;
+}
+
+function showToast(msg, kind){
+  let wrap = document.getElementById('toastWrap');
+  if(!wrap){
+    wrap = document.createElement('div');
+    wrap.id = 'toastWrap';
+    wrap.className = 'toast-wrap';
+    document.body.appendChild(wrap);
+  }
+  const t = document.createElement('div');
+  t.className = 'toast' + (kind === 'warn' ? ' warn' : '');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 4200);
+}
+
+/* يسجّل في الكتاب أنك وصلت للدرس/الصفحة n، كأنك عدّلته بنفسك من «الطريق» */
+async function recordProgress(book, n){
+  const b = booksCache.find(x => x.id === book.id) || book;
+  if(!n || n <= 0) return false;
+  const isPages = (b.kind || 'matn') === 'book';
+  const doneKey = isPages ? 'completed_pages' : 'completed_lessons';
+  const totalKey = isPages ? 'total_pages' : 'total_lessons';
+  const total = b[totalKey] || 0;
+  const prev = b[doneKey] || 0;
+  let next = Math.max(prev, n);
+  if(total > 0) next = Math.min(next, total);
+  const patch = {};
+  if(next !== prev) patch[doneKey] = next;
+  let status = b.status;
+  if(total > 0 && next >= total) status = 'complete';
+  else if(status === 'todo') status = 'in_progress';
+  if(status !== b.status) patch.status = status;
+  if(!Object.keys(patch).length) return false;
+  const {error} = await sb.from('books').update(patch).eq('id', b.id);
+  if(error){ showToast('تعذّر تحديث الكتاب: ' + error.message, 'warn'); return false; }
+  Object.assign(b, patch);
+  renderCurrentBooks();
+  const p = bookProgressPct(b);
+  showToast(status === 'complete' && patch.status
+    ? `🎉 أتممت «${b.name}»`
+    : `📖 «${b.name}»: وصلت إلى ${lessonUnit(b)} ${next} (${p.pct}%)`);
+  return true;
+}
+
+async function quickProgress(id){
+  const b = booksCache.find(x => x.id === id);
+  if(!b) return;
+  const done = bookProgressPct(b).done;
+  const unit = lessonUnit(b);
+  const input = prompt(`وصلت إلى أي ${unit}؟ (الحالي: ${done})`, String(done + 1));
+  if(input === null) return;
+  const n = parseInt(normalizeDigits(input)) || 0;
+  if(n <= 0) return;
+  await recordProgress(b, n);
+  await loadBooks();
 }
 
 function renderDailyView(){
   const el = document.getElementById('dailyView');
   el.innerHTML = `
+    <div id="currentBooks" class="current-books"></div>
     <div id="monthlySummary"></div>
     <div class="entry-box">
       <div class="field">
@@ -529,7 +648,16 @@ function renderDailyView(){
         <div style="font-size:.72rem;color:var(--ink-soft);margin-top:5px">يظهر القيد تحت الوسم الأول في سجل الأيام، مع بقاء بقية الوسوم ظاهرة داخله.</div>
       </div>
       <div class="field">
-        <label>اسم أو رقم الدرس (اختياري — يُحسب الدرس مرة واحدة ولو تكرر في عدة جلسات)</label>
+        <label>الكتاب من «الطريق» (اختياري — يُحدَّث إنجازك فيه تلقائيًا)</label>
+        <select id="entryBook" onchange="onEntryBookChange()">${bookOptionsHtml('')}</select>
+      </div>
+      <div class="field" id="entryLessonWrap" style="display:none">
+        <label id="entryLessonLabel">رقم الدرس الذي وصلت له</label>
+        <input id="entryLesson" type="text" inputmode="numeric">
+        <div class="hint" id="entryLessonHint"></div>
+      </div>
+      <div class="field" id="entryFreeLessonWrap">
+        <label>أو اسم درس حر بدون كتاب (يُحسب مرة واحدة ولو تكرر في عدة جلسات)</label>
         <input id="lessonNameInput" placeholder="مثل: الآجرومية — الدرس 12">
       </div>
       <div class="row2">
@@ -549,7 +677,7 @@ function renderDailyView(){
     <div class="timeline-head">
       <h2>سجل الأيام</h2>
       <span style="display:flex;gap:8px">
-        <input id="tagSearch" placeholder="ابحث بوسم..." onkeyup="loadEntries()">
+        <input id="tagSearch" placeholder="ابحث بوسم..." oninput="onTagSearch()">
       </span>
     </div>
     <div id="timeline"></div>
@@ -560,7 +688,24 @@ function renderDailyView(){
 
   document.getElementById('dateInput').valueAsDate = new Date();
 
+  renderCurrentBooks();
   loadEntries();
+}
+
+function onEntryBookChange(){
+  const sel = document.getElementById('entryBook');
+  if(!sel) return;
+  const b = booksCache.find(x => x.id === sel.value);
+  const wrap = document.getElementById('entryLessonWrap');
+  const free = document.getElementById('entryFreeLessonWrap');
+  if(free) free.style.display = b ? 'none' : '';
+  if(!b){ wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const unit = lessonUnit(b);
+  const done = bookProgressPct(b).done;
+  document.getElementById('entryLessonLabel').textContent = unit === 'صفحة' ? 'رقم الصفحة التي وصلت لها' : 'رقم الدرس الذي درسته';
+  document.getElementById('entryLesson').placeholder = 'مثل: ' + (done + 1);
+  document.getElementById('entryLessonHint').textContent = `وصلتَ حاليًا إلى ${unit} ${done}. اترك الخانة فارغة إذا لا تريد تحديث الإنجاز.`;
 }
 
 const STATUS_LABELS = {todo:'لسا ما بدأت', in_progress:'أدرسه الحين', complete:'خلصته'};
@@ -570,8 +715,6 @@ const PRESET_SUBJECTS = ['نحو','صرف','بلاغة','منطق','أصول ف�
 let currentSubjectId = null;
 let currentSubjectName = '';
 let editingBookId = null;
-let editingSrsId = null;
-let expandedSrsIds = new Set();
 
 function attrEscape(s){
   return String(s)
@@ -752,9 +895,11 @@ async function renderSubjectDetail(){
 }
 
 async function loadBooks(){
-  const {data, error} = await sb.from('books').select('*').eq('subject_id', currentSubjectId).order('level').order('sort_order').order('created_at');
   const wrap = document.getElementById('levelsWrap');
+  const error = await refreshBooksCache();
   if(error){ wrap.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; return; }
+  renderCurrentBooks();
+  const data = booksCache.filter(b => b.subject_id === currentSubjectId);
   if(!data || data.length===0){
     wrap.innerHTML = `<div class="empty">لسا ما أضفت كتب لهذا العلم. أضف أول كتاب أو متن ⤴</div>`;
     return;
@@ -805,7 +950,10 @@ function bookCardHtml(b){
       ${b.current_lesson ? `<div class="sj-current">📝 ${escapeHtml(b.current_lesson)}</div>` : ''}
       <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${prog.pct}%"></div></div>
       <div class="sj-progress-label">${prog.done} / ${prog.total} ${prog.unit} (${prog.pct}%)</div>
-      <button class="ghost" data-book="${dataAttr}" onclick="openBookForm(JSON.parse(this.getAttribute('data-book')))">تعديل</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="ghost" onclick="quickProgress('${b.id}')">＋ سجّل تقدّمي</button>
+        <button class="ghost" data-book="${dataAttr}" onclick="openBookForm(JSON.parse(this.getAttribute('data-book')))">تعديل</button>
+      </div>
     </div>`;
 }
 
@@ -819,7 +967,7 @@ function openBookForm(existing){
       <div class="row2">
         <div class="field">
           <label>اسم الكتاب أو المتن</label>
-          <input id="bkName" value="${escapeHtml(b.name)}" placeholder="مثل: الآجرومية">
+          <input id="bkName" value="${attrEscape(b.name)}" placeholder="مثل: الآجرومية">
         </div>
         <div class="field">
           <label>المستوى</label>
@@ -843,7 +991,7 @@ function openBookForm(existing){
         </div>
         <div class="field">
           <label>ملاحظات (اختياري)</label>
-          <input id="bkCurrent" value="${escapeHtml(b.current_lesson||'')}" placeholder="أي ملاحظة تحب تسجلها">
+          <input id="bkCurrent" value="${attrEscape(b.current_lesson||'')}" placeholder="أي ملاحظة تحب تسجلها">
         </div>
       </div>
       <div style="display:flex;gap:10px">
@@ -977,6 +1125,70 @@ let audioCtx = null;
 let stopwatchRunning = false;
 let stopwatchStartRef = null;
 let stopwatchElapsedMs = 0;
+const BASE_TITLE = document.title;
+let focusBookId = localStorage.getItem('rihla_focus_book') || '';
+let focusLessonNo = '';
+let pmCfg = {work:25, short:5, long:15, rounds:4, free:20};
+try { Object.assign(pmCfg, JSON.parse(localStorage.getItem('rihla_pm') || '{}')); } catch(e) {}
+
+window.addEventListener('beforeunload', e => {
+  if(timerRunning || stopwatchRunning){ e.preventDefault(); e.returnValue = ''; }
+});
+
+function savePmCfg(){
+  const g = (id, def) => { const x = document.getElementById(id); return x ? (parseInt(normalizeDigits(x.value)) || def) : def; };
+  pmCfg = {work:g('pmWork',pmCfg.work), short:g('pmShort',pmCfg.short), long:g('pmLong',pmCfg.long), rounds:g('pmRounds',pmCfg.rounds), free:g('freeMinutes',pmCfg.free)};
+  localStorage.setItem('rihla_pm', JSON.stringify(pmCfg));
+  if(!timerRunning && timerRemainingMs === 0) updateTimerDisplay();
+}
+
+function focusLinkHtml(){
+  const b = booksCache.find(x => x.id === focusBookId);
+  const unit = b ? lessonUnit(b) : 'درس';
+  const done = b ? bookProgressPct(b).done : 0;
+  return `
+    <div class="field">
+      <label>الكتاب الذي تدرسه (اختياري — يُحدَّث إنجازك في «الطريق» تلقائيًا)</label>
+      <select id="focusBook" onchange="onFocusBookChange(this.value)">${bookOptionsHtml(focusBookId)}</select>
+    </div>
+    <div class="field" id="focusLessonWrap" style="${b ? '' : 'display:none'}">
+      <label id="focusLessonLabel">${unit === 'صفحة' ? 'رقم الصفحة التي ستصل لها' : 'رقم الدرس الذي تدرسه'}</label>
+      <input id="focusLesson" type="text" inputmode="numeric" value="${attrEscape(focusLessonNo)}" placeholder="مثل: ${done + 1}" oninput="focusLessonNo=this.value">
+      <div class="hint" id="focusLessonHint">${b ? `وصلتَ حاليًا إلى ${unit} ${done}. يُسجَّل الإنجاز عند انتهاء الجلسة.` : ''}</div>
+    </div>
+    <div class="field">
+      <label>وسم أو ملاحظة (اختياري، يُسجَّل بالسجل اليومي)</label>
+      <input id="focusTag" placeholder="مثل: مراجعة، حفظ">
+    </div>`;
+}
+
+function onFocusBookChange(id){
+  focusBookId = id;
+  focusLessonNo = '';
+  localStorage.setItem('rihla_focus_book', id);
+  updateFocusLinkUi();
+}
+
+function updateFocusLinkUi(){
+  const wrap = document.getElementById('focusLessonWrap');
+  if(!wrap) return;
+  const b = booksCache.find(x => x.id === focusBookId);
+  wrap.style.display = b ? '' : 'none';
+  const input = document.getElementById('focusLesson');
+  input.value = focusLessonNo;
+  if(!b) return;
+  const unit = lessonUnit(b);
+  const done = bookProgressPct(b).done;
+  document.getElementById('focusLessonLabel').textContent = unit === 'صفحة' ? 'رقم الصفحة التي ستصل لها' : 'رقم الدرس الذي تدرسه';
+  input.placeholder = 'مثل: ' + (done + 1);
+  document.getElementById('focusLessonHint').textContent = `وصلتَ حاليًا إلى ${unit} ${done}. يُسجَّل الإنجاز عند انتهاء الجلسة.`;
+}
+
+function collectFocusLink(){
+  const b = booksCache.find(x => x.id === focusBookId) || null;
+  const n = b ? (parseInt(normalizeDigits(focusLessonNo)) || 0) : 0;
+  return {book: b, n};
+}
 
 function renderFocusView(){
   const el = document.getElementById('focusView');
@@ -1016,29 +1228,26 @@ function renderFocusPanel(){
       <div class="row2">
         <div class="field">
           <label>مدة العمل (دقيقة)</label>
-          <input id="pmWork" type="text" inputmode="numeric" value="25" ${dis}>
+          <input id="pmWork" type="text" inputmode="numeric" value="${pmCfg.work}" onchange="savePmCfg()" ${dis}>
         </div>
         <div class="field">
           <label>مدة الاستراحة القصيرة (دقيقة)</label>
-          <input id="pmShort" type="text" inputmode="numeric" value="5" ${dis}>
+          <input id="pmShort" type="text" inputmode="numeric" value="${pmCfg.short}" onchange="savePmCfg()" ${dis}>
         </div>
       </div>
       <div class="row2">
         <div class="field">
           <label>مدة الاستراحة الطويلة (دقيقة)</label>
-          <input id="pmLong" type="text" inputmode="numeric" value="15" ${dis}>
+          <input id="pmLong" type="text" inputmode="numeric" value="${pmCfg.long}" onchange="savePmCfg()" ${dis}>
         </div>
         <div class="field">
           <label>عدد الجولات قبل الاستراحة الطويلة</label>
-          <input id="pmRounds" type="text" inputmode="numeric" value="4" ${dis}>
+          <input id="pmRounds" type="text" inputmode="numeric" value="${pmCfg.rounds}" onchange="savePmCfg()" ${dis}>
         </div>
       </div>
       <div class="focus-phase-label" id="phaseLabel">${POMODORO_PHASE_LABELS[pomodoroPhase]} — الجولة ${pomodoroRound}</div>
       <div class="focus-display" id="timerDisplay">--:--</div>
-      <div class="field">
-        <label>تدرس ايش الحين؟ (اختياري، يُسجَّل بالسجل اليومي)</label>
-        <input id="focusTag" placeholder="مثل: نحو، مراجعة الآجرومية">
-      </div>
+      ${focusLinkHtml()}
       <label class="focus-check"><input type="checkbox" id="autoLog" checked> أضف الجلسة تلقائيًا للسجل اليومي عند الانتهاء</label>
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
@@ -1047,13 +1256,10 @@ function renderFocusPanel(){
     panel.innerHTML = `
       <div class="field" style="max-width:200px">
         <label>عدد الدقائق</label>
-        <input id="freeMinutes" type="text" inputmode="numeric" value="20" ${dis}>
+        <input id="freeMinutes" type="text" inputmode="numeric" value="${pmCfg.free}" onchange="savePmCfg()" ${dis}>
       </div>
       <div class="focus-display" id="timerDisplay">--:--</div>
-      <div class="field">
-        <label>تدرس ايش الحين؟ (اختياري، يُسجَّل بالسجل اليومي)</label>
-        <input id="focusTag" placeholder="مثل: قراءة، حفظ">
-      </div>
+      ${focusLinkHtml()}
       <label class="focus-check"><input type="checkbox" id="autoLog" checked> أضف الجلسة تلقائيًا للسجل اليومي عند الانتهاء</label>
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
@@ -1062,10 +1268,7 @@ function renderFocusPanel(){
     panel.innerHTML = `
       <div class="focus-phase-label">تبدأ من صفر وتستمر لين توقفها بنفسك</div>
       <div class="focus-display" id="timerDisplay">00:00</div>
-      <div class="field">
-        <label>تدرس ايش الحين؟ (اختياري، يُسجَّل بالسجل اليومي)</label>
-        <input id="focusTag" placeholder="مثل: قراءة حرة">
-      </div>
+      ${focusLinkHtml()}
       <label class="focus-check"><input type="checkbox" id="autoLog" checked> سجّل الجلسة تلقائيًا بالسجل اليومي عند الإنهاء</label>
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
@@ -1135,6 +1338,7 @@ function updateStopwatchDisplay(ms){
   const disp = document.getElementById('timerDisplay');
   if(!disp) return;
   disp.textContent = formatElapsed(ms);
+  document.title = stopwatchRunning ? `${formatElapsed(ms)} • ${BASE_TITLE}` : BASE_TITLE;
 }
 
 function startStopwatch(){
@@ -1164,6 +1368,7 @@ function pauseStopwatch(){
   stopwatchRunning = false;
   clearInterval(timerInterval);
   timerInterval = null;
+  document.title = BASE_TITLE;
   renderFocusControls();
 }
 
@@ -1188,9 +1393,11 @@ async function finishStopwatch(){
   const autoLogEl = document.getElementById('autoLog');
   const shouldLog = autoLogEl ? autoLogEl.checked : true;
 
-  if(shouldLog){
-    await logFocusSession(minutesDone, 'ساعة توقف', tagVal);
+  const link = collectFocusLink();
+  if(minutesDone >= 1 && shouldLog){
+    await logFocusSession(minutesDone, 'ساعة توقف', tagVal, link);
   }
+  if(link.book && link.n){ await recordProgress(link.book, link.n); }
 
   stopwatchElapsedMs = 0;
   stopwatchStartRef = null;
@@ -1261,6 +1468,7 @@ function pauseTimer(){
   timerRunning = false;
   clearInterval(timerInterval);
   timerInterval = null;
+  document.title = BASE_TITLE;
   renderFocusControls();
   disableFocusInputs(false);
 }
@@ -1303,12 +1511,14 @@ function updateTimerDisplay(){
   const mm = String(Math.floor(totalSec/60)).padStart(2,'0');
   const ss = String(totalSec%60).padStart(2,'0');
   disp.textContent = `${mm}:${ss}`;
+  document.title = timerRunning ? `${mm}:${ss} • ${BASE_TITLE}` : BASE_TITLE;
 }
 
 async function onTimerComplete(){
   clearInterval(timerInterval);
   timerInterval = null;
   timerRunning = false;
+  document.title = BASE_TITLE;
   renderFocusControls();
   disableFocusInputs(false);
   playAlarm();
@@ -1320,8 +1530,13 @@ async function onTimerComplete(){
   const shouldLog = autoLogEl ? autoLogEl.checked : true;
   const phaseLabel = timerMode === 'pomodoro' ? POMODORO_PHASE_LABELS[pomodoroPhase] : 'مؤقت حر';
 
-  if(shouldLog && (timerMode === 'free' || pomodoroPhase === 'work')){
-    await logFocusSession(minutesDone, phaseLabel, tagVal);
+  const isWork = (timerMode === 'free' || pomodoroPhase === 'work');
+  const link = collectFocusLink();
+  if(shouldLog && isWork){
+    await logFocusSession(minutesDone, phaseLabel, tagVal, link);
+  }
+  if(isWork && link.book && link.n){
+    await recordProgress(link.book, link.n);
   }
 
   const banner = document.getElementById('focusBanner');
@@ -1338,15 +1553,32 @@ async function onTimerComplete(){
   }
 }
 
-async function logFocusSession(minutes, phaseLabel, tag){
+async function logFocusSession(minutes, phaseLabel, tag, link){
+  const book = link && link.book;
+  const n = (link && link.n) || 0;
+  const parts = splitTags(tag);
+  if(!parts.length && book) parts.push(book.name);
+  let where = '';
+  if(book){
+    const unit = lessonUnit(book);
+    where = ` — ${book.name}${n ? `، ${unit} ${n}` : ''}`;
+    if(n && unit === 'درس') parts.push(`درس: ${book.name} — الدرس ${n}`);
+  }
+  const payload = {
+    entry_date: toDateStr(new Date()),
+    type: 'tarkiz',
+    content: `جلسة تركيز (${phaseLabel}): ${minutes} دقيقة${where}`,
+    tags: parts.join(', '),
+    focus_minutes: minutes,
+    book_id: book ? book.id : null,
+    lesson_number: n || null
+  };
   try{
-    await sb.from('entries').insert({
-      entry_date: toDateStr(new Date()),
-      type: 'tarkiz',
-      content: `جلسة تركيز (${phaseLabel}): ${minutes} دقيقة`,
-      tags: tag || '',
-      focus_minutes: minutes
-    });
+    const {error} = await sb.from('entries').insert(payload);
+    if(error && /book_id|lesson_number/.test(error.message || '')){
+      const {book_id, lesson_number, ...rest} = payload;
+      await sb.from('entries').insert(rest);
+    }
   }catch(e){ /* لا نعطّل المؤقت لو فشل التسجيل التلقائي */ }
 }
 
@@ -1424,329 +1656,30 @@ function stopAlarm(){
   if(alarmLoopInterval){ clearInterval(alarmLoopInterval); alarmLoopInterval = null; }
 }
 
-/* ============ نظام التكرار المتباعد (المراجعة) ============ */
-
-const SRS_DURATION_LABELS = {'3m':'٣ أشهر', '6m':'٦ أشهر', '1y':'سنة', 'custom':'مخصصة'};
-
-function srsTotalDays(kind, customDays){
-  if(kind === '3m') return 90;
-  if(kind === '6m') return 180;
-  if(kind === '1y') return 365;
-  return (customDays && customDays > 0) ? customDays : 90;
-}
-
-function srsSchedule(kind, customDays, reviewCount){
-  const total = srsTotalDays(kind, customDays);
-  const n = Math.max(1, reviewCount || 7);
-  const days = [];
-  for(let i=1;i<=n;i++){
-    const ratio = Math.pow(i/n, 1.6);
-    days.push(Math.max(1, Math.round(ratio * total)));
+async function saveEntryRow(payload, id){
+  const run = p => id
+    ? sb.from('entries').update(p).eq('id', id)
+    : sb.from('entries').insert({ ...p, type: 'entry' });
+  let res = await run(payload);
+  if(res.error && /book_id|lesson_number/.test(res.error.message || '')){
+    const {book_id, lesson_number, ...rest} = payload;
+    res = await run(rest);
+    if(!res.error) showToast('تم الحفظ، لكن لم يُربط بالكتاب. نفّذ ملف SQL في Supabase أولاً.', 'warn');
   }
-  return [...new Set(days)].sort((a,b)=>a-b);
-}
-
-function srsNextReviewInfo(unit){
-  const schedule = srsSchedule(unit.duration_kind, unit.duration_days, unit.review_count);
-  const stage = unit.current_stage || 0;
-  if(stage >= schedule.length){
-    return {done:true, total:schedule.length};
-  }
-  const startDate = new Date(unit.start_date);
-  const nextDate = new Date(startDate);
-  nextDate.setDate(nextDate.getDate() + schedule[stage]);
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  nextDate.setHours(0,0,0,0);
-  const diffDays = Math.round((nextDate - today) / 86400000);
-  return {done:false, nextDate, stageNum:stage+1, total:schedule.length, diffDays};
-}
-
-function humanCountdown(diffDays){
-  if(diffDays < 0) return `مضت منذ ${Math.abs(diffDays)} يوم`;
-  if(diffDays === 0) return 'اليوم';
-  if(diffDays < 30) return `بعد ${diffDays} يوم`;
-  if(diffDays < 365) return `بعد ${Math.round(diffDays/30)} شهر`;
-  return `بعد ${Math.round(diffDays/365*10)/10} سنة`;
-}
-
-function srsFullSchedule(unit){
-  const schedule = srsSchedule(unit.duration_kind, unit.duration_days, unit.review_count);
-  const startDate = new Date(unit.start_date);
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const stage = unit.current_stage || 0;
-  return schedule.map((offset, i)=>{
-    const d = new Date(startDate);
-    d.setDate(d.getDate() + offset);
-    d.setHours(0,0,0,0);
-    const diffDays = Math.round((d - today) / 86400000);
-    return {
-      num: i+1,
-      date: d,
-      dateStr: toDateStr(d),
-      completed: i < stage,
-      diffDays
-    };
-  });
-}
-
-function toggleSrsExpand(id){
-  if(expandedSrsIds.has(id)) expandedSrsIds.delete(id);
-  else expandedSrsIds.add(id);
-  loadSrsUnits();
-}
-
-function renderSrsScheduleList(unit){
-  const full = srsFullSchedule(unit);
-  return `
-    <div class="srs-schedule-list">
-      ${full.map(item => `
-        <div class="srs-schedule-row ${item.completed ? 'srs-done' : ''}">
-          <span>${item.completed ? '✓' : item.num}. ${formatDate(item.dateStr)}</span>
-          <span class="srs-schedule-countdown">${item.completed ? 'تمّت' : humanCountdown(item.diffDays)}</span>
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-async function renderSrsView(){
-  const el = document.getElementById('srsView');
-  el.innerHTML = `
-    <div class="timeline-head">
-      <h2>المراجعة (تكرار متباعد)</h2>
-      <button class="primary" onclick="openSrsForm()">+ إضافة وحدة تعليمية</button>
-    </div>
-    <div id="srsFormWrap"></div>
-    <div id="srsDueBanner"></div>
-    <div id="srsList" class="subjects-grid"><div class="empty">جاري التحميل...</div></div>
-  `;
-  await loadSrsUnits();
-}
-
-function openSrsForm(existing){
-  editingSrsId = existing ? existing.id : null;
-  const wrap = document.getElementById('srsFormWrap');
-  const u = existing || {title:'', start_date: toDateStr(new Date()), duration_kind:'3m', duration_days:90, current_stage:0, review_count:7, tags:''};
-  const kind = u.duration_kind || '3m';
-  const reviewCount = u.review_count || 7;
-  const schedule = srsSchedule(kind, u.duration_days, reviewCount);
-  wrap.innerHTML = `
-    <div class="entry-box">
-      <div class="field">
-        <label>اسم الوحدة التعليمية</label>
-        <input id="srsTitle" value="${escapeHtml(u.title)}" placeholder="مثل: حفظ سورة البقرة، متن الآجرومية">
-      </div>
-      <div class="row2">
-        <div class="field">
-          <label>تاريخ بداية الوحدة</label>
-          <input type="date" id="srsStartDate" value="${u.start_date}">
-        </div>
-        <div class="field">
-          <label>مدة التكرار</label>
-          <select id="srsDurationKind" onchange="changeSrsDurationKind(this.value)">
-            ${Object.entries(SRS_DURATION_LABELS).map(([k,v])=>`<option value="${k}" ${kind===k?'selected':''}>${v}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div id="srsCustomDaysWrap"></div>
-      <div class="field" style="max-width:220px">
-        <label>عدد المراجعات خلال هذي المدة</label>
-        <input id="srsReviewCount" type="text" inputmode="numeric" value="${reviewCount}" onchange="changeSrsReviewCount(this.value)">
-      </div>
-      <div class="field">
-        <label>وين وصلت؟ (لو عندك وحدة قديمة من مكان ثاني)</label>
-        <select id="srsCurrentStage">
-          <option value="0" ${(u.current_stage||0)===0?'selected':''}>لسا ما بدأت أي مراجعة</option>
-          ${schedule.map((d,i)=>`<option value="${i+1}" ${(u.current_stage||0)===i+1?'selected':''}>خلصت المراجعة رقم ${i+1} (من ${schedule.length})</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>الوسوم (اختياري)</label>
-        <input id="srsTags" value="${escapeHtml(u.tags||'')}" placeholder="مثل: قرآن، حفظ">
-      </div>
-      <div style="display:flex;gap:10px">
-        <button class="primary" onclick="saveSrsUnit()">حفظ</button>
-        <button class="ghost" onclick="cancelSrsForm()">إلغاء</button>
-      </div>
-    </div>
-  `;
-  renderSrsCustomDaysField(kind, u.duration_days);
-  wrap.scrollIntoView({behavior:'smooth', block:'start'});
-}
-
-function renderSrsCustomDaysField(kind, days){
-  const elx = document.getElementById('srsCustomDaysWrap');
-  if(!elx) return;
-  if(kind === 'custom'){
-    elx.innerHTML = `
-      <div class="field" style="max-width:220px">
-        <label>عدد الأيام الكلي</label>
-        <input id="srsCustomDays" type="text" inputmode="numeric" value="${days && days>0 ? days : 90}" onchange="changeSrsCustomDays(this.value)">
-      </div>
-    `;
-  } else {
-    elx.innerHTML = '';
-  }
-}
-
-function changeSrsDurationKind(newKind){
-  const draft = {
-    id: editingSrsId,
-    title: document.getElementById('srsTitle').value,
-    start_date: document.getElementById('srsStartDate').value,
-    duration_kind: newKind,
-    duration_days: newKind==='custom' ? 90 : srsTotalDays(newKind),
-    current_stage: 0,
-    review_count: parseInt(normalizeDigits(document.getElementById('srsReviewCount').value)) || 7,
-    tags: document.getElementById('srsTags').value
-  };
-  openSrsForm(draft);
-}
-
-function changeSrsCustomDays(val){
-  const draft = {
-    id: editingSrsId,
-    title: document.getElementById('srsTitle').value,
-    start_date: document.getElementById('srsStartDate').value,
-    duration_kind: 'custom',
-    duration_days: parseInt(normalizeDigits(val)) || 90,
-    current_stage: 0,
-    review_count: parseInt(normalizeDigits(document.getElementById('srsReviewCount').value)) || 7,
-    tags: document.getElementById('srsTags').value
-  };
-  openSrsForm(draft);
-}
-
-function changeSrsReviewCount(val){
-  const kind = document.getElementById('srsDurationKind').value;
-  const customDaysEl = document.getElementById('srsCustomDays');
-  const draft = {
-    id: editingSrsId,
-    title: document.getElementById('srsTitle').value,
-    start_date: document.getElementById('srsStartDate').value,
-    duration_kind: kind,
-    duration_days: kind==='custom' ? (parseInt(normalizeDigits(customDaysEl ? customDaysEl.value : '90')) || 90) : srsTotalDays(kind),
-    current_stage: 0,
-    review_count: parseInt(normalizeDigits(val)) || 7,
-    tags: document.getElementById('srsTags').value
-  };
-  openSrsForm(draft);
-}
-
-function cancelSrsForm(){
-  document.getElementById('srsFormWrap').innerHTML = '';
-  editingSrsId = null;
-}
-
-async function saveSrsUnit(){
-  const id = editingSrsId;
-  const title = document.getElementById('srsTitle').value.trim();
-  if(!title){ alert('اكتب اسم الوحدة التعليمية أولاً'); return; }
-  const startDate = document.getElementById('srsStartDate').value;
-  if(!startDate){ alert('حدد تاريخ بداية الوحدة'); return; }
-  const kind = document.getElementById('srsDurationKind').value;
-  const customDaysEl = document.getElementById('srsCustomDays');
-  const durationDays = kind === 'custom'
-    ? (parseInt(normalizeDigits(customDaysEl ? customDaysEl.value : '90')) || 90)
-    : srsTotalDays(kind);
-  const stage = parseInt(document.getElementById('srsCurrentStage').value) || 0;
-  const reviewCount = parseInt(normalizeDigits(document.getElementById('srsReviewCount').value)) || 7;
-  const payload = {
-    title,
-    start_date: startDate,
-    duration_kind: kind,
-    duration_days: durationDays,
-    current_stage: stage,
-    review_count: reviewCount,
-    tags: document.getElementById('srsTags').value.trim()
-  };
-  let error;
-  if(id){
-    ({error} = await sb.from('srs_units').update(payload).eq('id', id));
-  } else {
-    ({error} = await sb.from('srs_units').insert(payload));
-  }
-  if(error){ alert('صار خطأ: '+error.message); return; }
-  document.getElementById('srsFormWrap').innerHTML = '';
-  editingSrsId = null;
-  await loadSrsUnits();
-}
-
-async function deleteSrsUnit(id){
-  if(!confirm('حذف هذه الوحدة التعليمية من نظام المراجعة؟')) return;
-  await sb.from('srs_units').delete().eq('id', id);
-  await loadSrsUnits();
-}
-
-async function markSrsReviewed(id, currentStage){
-  const {error} = await sb.from('srs_units').update({current_stage: currentStage + 1}).eq('id', id);
-  if(error){ alert('صار خطأ: '+error.message); return; }
-  await loadSrsUnits();
-}
-
-async function loadSrsUnits(){
-  const {data, error} = await sb.from('srs_units').select('*').order('created_at');
-  const list = document.getElementById('srsList');
-  const banner = document.getElementById('srsDueBanner');
-  if(error){ list.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; if(banner) banner.innerHTML=''; return; }
-
-  if(!data || data.length===0){
-    list.innerHTML = `<div class="empty">لسا ما أضفت أي وحدة تعليمية. ابدأ بإضافة أول وحدة ⤴</div>`;
-    if(banner) banner.innerHTML = '';
-    return;
-  }
-
-  const infos = data.map(u => ({unit:u, info: srsNextReviewInfo(u)}));
-  const dueCount = infos.filter(x => !x.info.done && x.info.diffDays <= 0).length;
-  if(banner){
-    banner.innerHTML = dueCount > 0
-      ? `<div class="monthly-summary">🔔 عندك <b>${dueCount}</b> وحدة تحتاج مراجعة اليوم أو متأخرة.</div>`
-      : '';
-  }
-
-  list.innerHTML = infos.map(({unit, info})=>{
-    const dataAttr = attrEscape(JSON.stringify(unit));
-    let statusHtml, cardClass;
-    if(info.done){
-      statusHtml = `<div class="sj-status">✅ اكتملت كل المراجعات (${info.total})</div>`;
-      cardClass = 'status-complete';
-    } else {
-      const dateLabel = formatDate(toDateStr(info.nextDate));
-      let dueLabel;
-      if(info.diffDays < 0) dueLabel = `متأخرة ${Math.abs(info.diffDays)} يوم`;
-      else if(info.diffDays === 0) dueLabel = 'اليوم';
-      else dueLabel = `بعد ${info.diffDays} يوم`;
-      cardClass = info.diffDays <= 0 ? 'status-todo' : 'status-in_progress';
-      statusHtml = `<div class="sj-status">المراجعة ${info.stageNum} من ${info.total} — ${dueLabel} (${dateLabel})</div>`;
-    }
-    return `
-    <div class="path-card ${cardClass}">
-      <button class="ghost del" onclick="deleteSrsUnit('${unit.id}')">حذف</button>
-      <div class="sj-name">${escapeHtml(unit.title)}</div>
-      ${statusHtml}
-      ${unit.tags ? `<div class="tags-row">${unit.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        ${(!info.done && info.diffDays <= 0) ? `<button class="primary" onclick="markSrsReviewed('${unit.id}', ${unit.current_stage||0})">تمت المراجعة ✓</button>` : ''}
-        ${(!info.done && info.diffDays > 0) ? `<span style="font-size:.78rem;color:var(--ink-soft);align-self:center">🔒 تُفتح بعد ${info.diffDays} يوم</span>` : ''}
-        <button class="ghost" data-srs="${dataAttr}" onclick="openSrsForm(JSON.parse(this.getAttribute('data-srs')))">تعديل</button>
-        <button class="ghost" onclick="toggleSrsExpand('${unit.id}')">${expandedSrsIds.has(unit.id) ? 'إخفاء كل المواعيد ▴' : 'عرض كل المواعيد ▾'}</button>
-      </div>
-      ${expandedSrsIds.has(unit.id) ? renderSrsScheduleList(unit) : ''}
-      </div>
-    </div>`;
-  }).join('');
+  return res;
 }
 
 async function addEntry(){
   const content = document.getElementById('contentInput').value.trim();
-  const date = document.getElementById('dateInput').value;
+  const date = document.getElementById('dateInput').value || toDateStr(new Date());
   let tags = document.getElementById('tagsInput').value.trim();
-  const lessonName = document.getElementById('lessonNameInput').value.trim();
+  const book = booksCache.find(b => b.id === document.getElementById('entryBook').value) || null;
+  const lessonNo = book ? (parseInt(normalizeDigits(document.getElementById('entryLesson').value)) || 0) : 0;
+  let lessonName = book ? '' : document.getElementById('lessonNameInput').value.trim();
+  if(book && lessonNo && lessonUnit(book) === 'درس') lessonName = `${book.name} — الدرس ${lessonNo}`;
   if(!content){ alert('اكتب ما تريد تسجيله أولاً'); return; }
-  if(splitTags(tags).some(tag=>tag === 'درس') && !lessonName){
-    alert('حتى يُحسب الدرس بدقة، اكتب اسمه أو رقمه في خانة «اسم أو رقم الدرس».');
+  if(splitTags(tags).some(tag=>tag === 'درس') && !lessonName && !(book && lessonNo)){
+    alert('حتى يُحسب الدرس بدقة، اختر الكتاب واكتب رقم الدرس، أو اكتب اسمه في خانة «اسم درس حر».');
     return;
   }
   // الاسم هو مفتاح الدرس؛ لذلك لا تحتسب الجلسات المتكررة للدرس نفسه أكثر من مرة.
@@ -1756,11 +1689,14 @@ async function addEntry(){
     if(!existingTags.includes(lessonTag)) existingTags.push(lessonTag);
     tags = existingTags.join(', ');
   }
-  const payload = { entry_date: date, content, tags };
-  const {error} = editingEntryId
-    ? await sb.from('entries').update(payload).eq('id', editingEntryId)
-    : await sb.from('entries').insert({ ...payload, type: 'entry' });
+  const payload = {
+    entry_date: date, content, tags,
+    book_id: book ? book.id : null,
+    lesson_number: lessonNo || null
+  };
+  const {error} = await saveEntryRow(payload, editingEntryId);
   if(error){ alert('صار خطأ: '+error.message); return; }
+  if(book && lessonNo) await recordProgress(book, lessonNo);
   cancelEditEntry();
   await loadEntries();
 }
@@ -1769,12 +1705,19 @@ function startEditEntry(id){
   const entry = entriesById.get(id);
   if(!entry) return;
   editingEntryId = id;
+  const book = entry.book_id ? booksCache.find(b => b.id === entry.book_id) : null;
   const lessonTag = splitTags(entry.tags).find(tag => /^درس\s*:\s*(.+)$/i.test(tag));
   const lessonMatch = lessonTag && lessonTag.match(/^درس\s*:\s*(.+)$/i);
   document.getElementById('contentInput').value = entry.content || '';
   document.getElementById('dateInput').value = entry.entry_date || '';
+  // وسم الدرس يُعاد توليده عند الحفظ، فلا نعرضه في خانة الوسوم
   document.getElementById('tagsInput').value = splitTags(entry.tags).filter(tag => tag !== lessonTag).join(', ');
-  document.getElementById('lessonNameInput').value = lessonMatch ? lessonMatch[1] : '';
+  const sel = document.getElementById('entryBook');
+  sel.innerHTML = bookOptionsHtml(book ? book.id : '');
+  sel.value = book ? book.id : '';
+  document.getElementById('entryLesson').value = book && entry.lesson_number ? entry.lesson_number : '';
+  document.getElementById('lessonNameInput').value = (!book && lessonMatch) ? lessonMatch[1] : '';
+  onEntryBookChange();
   document.getElementById('saveEntryButton').textContent = 'حفظ التعديلات';
   document.getElementById('cancelEditWrap').style.display = '';
   document.querySelector('.entry-box').scrollIntoView({behavior:'smooth', block:'start'});
@@ -1787,6 +1730,10 @@ function cancelEditEntry(){
   content.value = '';
   document.getElementById('tagsInput').value = '';
   document.getElementById('lessonNameInput').value = '';
+  document.getElementById('entryLesson').value = '';
+  const sel = document.getElementById('entryBook');
+  sel.value = '';
+  onEntryBookChange();
   document.getElementById('dateInput').valueAsDate = new Date();
   document.getElementById('saveEntryButton').textContent = 'حفظ في السجل';
   document.getElementById('cancelEditWrap').style.display = 'none';
@@ -1799,21 +1746,36 @@ async function deleteEntry(id){
 }
 
 async function loadEntries(){
-  const tagSearch = document.getElementById('tagSearch') ? document.getElementById('tagSearch').value.trim().toLowerCase() : '';
-  let query = sb.from('entries').select('*').order('entry_date', {ascending:false}).order('created_at', {ascending:false});
-  let {data, error} = await query;
+  const {data, error} = await sb.from('entries').select('*').order('entry_date', {ascending:false}).order('created_at', {ascending:false});
   const timeline = document.getElementById('timeline');
+  if(!timeline) return;
   if(error){ timeline.innerHTML = `<div class="empty">تعذّر تحميل السجل: ${error.message}</div>`; return; }
-  entriesById = new Map((data||[]).map(entry => [entry.id, entry]));
+  entriesCache = data || [];
+  entriesById = new Map(entriesCache.map(entry => [entry.id, entry]));
+  renderStats(entriesCache);
+  renderTimeline();
+}
 
-  renderStats();
+let tagSearchTimer = null;
+function onTagSearch(){
+  clearTimeout(tagSearchTimer);
+  tagSearchTimer = setTimeout(renderTimeline, 150);
+}
 
+function renderTimeline(){
+  const timeline = document.getElementById('timeline');
+  if(!timeline) return;
+  const searchEl = document.getElementById('tagSearch');
+  const tagSearch = searchEl ? searchEl.value.trim().replace(/^#/, '').toLowerCase() : '';
+  let data = entriesCache;
   if(tagSearch){
-    data = (data||[]).filter(e => (e.tags||'').toLowerCase().includes(tagSearch));
+    data = data.filter(e => (e.tags||'').toLowerCase().includes(tagSearch));
   }
 
   if(!data || data.length===0){
-    timeline.innerHTML = `<div class="empty">لا توجد قيود بعد. ابدأ رحلتك بتسجيل أول فائدة أو حفظ اليوم ⤴</div>`;
+    timeline.innerHTML = tagSearch
+      ? `<div class="empty">لا توجد قيود بهذا الوسم.</div>`
+      : `<div class="empty">لا توجد قيود بعد. ابدأ رحلتك بتسجيل أول فائدة أو حفظ اليوم ⤴</div>`;
     return;
   }
   const groupedEntries = new Map();
@@ -1836,7 +1798,7 @@ async function loadEntries(){
 
   timeline.innerHTML = [...groupedEntries.entries()].map(([tag, entries]) => `
     <section class="tag-group${collapsedTagGroups.has(tag) ? ' collapsed' : ''}">
-      <button type="button" class="tag-group-head" data-tag="${escapeHtml(tag)}" onclick="toggleTagGroup(this)" aria-expanded="${!collapsedTagGroups.has(tag)}">
+      <button type="button" class="tag-group-head" data-tag="${attrEscape(tag)}" onclick="toggleTagGroup(this)" aria-expanded="${!collapsedTagGroups.has(tag)}">
         <h3>${tag === 'بدون وسم' ? 'بدون وسم' : '#'+escapeHtml(tag)}</h3>
         <span style="display:flex;align-items:center;gap:8px"><span class="tag-group-count">${entries.length} ${entries.length===1 ? 'قيد' : 'قيود'}</span><span class="tag-group-chevron">⌄</span></span>
       </button>
@@ -1916,9 +1878,9 @@ function toggleTagGroup(button){
   localStorage.setItem('rihla_collapsed_tag_groups', JSON.stringify([...collapsedTagGroups]));
 }
 
-async function renderStats(){
-  const {data:all} = await sb.from('entries').select('type, entry_date, focus_minutes, tags');
-  const entries = all || [];
+function renderStats(list){
+  const entries = list || entriesCache || [];
+  const streak = computeStreak(entries.map(e => e.entry_date));
   const availableKeys = [...new Set(entries.map(e => entryMonthKey(e.entry_date)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -1948,13 +1910,14 @@ async function renderStats(){
       <section class="monthly-summary-card" id="monthlySummaryCard">
         <button class="monthly-summary-toggle" id="monthlySummaryToggle" onclick="toggleMonthlySummary()" aria-expanded="true">
           <span class="monthly-summary-title">ملخص ${monthLabel}</span>
-          <span class="monthly-summary-brief">${lessonsCount} دروس · ${focusTimeLabel} تركيز</span>
+          <span class="monthly-summary-brief">${lessonsCount} دروس · ${focusTimeLabel} تركيز${streak > 1 ? ' · 🔥 ' + streak : ''}</span>
           <span class="summary-chevron">⌄</span>
         </button>
         <div class="monthly-summary-content">
           <div>
             درست <b>${lessonsCount}</b> ${lessonsCount===1 ? 'درسًا' : 'دروس'}، ومجموع وقت التركيز <b>${focusTimeLabel}</b>.
-            <div style="font-size:.75rem;color:var(--ink-soft);margin-top:5px">يُحتسب الدرس بالوسم المنظّم: درس: اسم أو رقم الدرس. أعد استخدام الاسم نفسه عند متابعة الدرس.</div>
+            ${streak > 0 ? `<div style="margin-top:4px">🔥 سلسلة التسجيل المتتالية: <b>${streak}</b> ${streak===1 ? 'يوم' : 'أيام'}</div>` : ''}
+            <div style="font-size:.75rem;color:var(--ink-soft);margin-top:5px">يُحتسب الدرس مرة واحدة ولو تكرر في عدة جلسات. اربط القيد أو جلسة التركيز بكتاب من «الطريق» وسيُحتسب تلقائيًا.</div>
             <div class="monthly-summary-nav">
               <button class="ghost monthly-nav-btn" onclick="shiftMonthlySummaryMonth(1)" ${atOldest ? 'disabled' : ''}>← الشهر السابق</button>
               <button class="ghost monthly-nav-btn" onclick="shiftMonthlySummaryMonth(-1)" ${atNewest ? 'disabled' : ''}>الشهر التالي →</button>
