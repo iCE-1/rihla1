@@ -312,6 +312,57 @@
   .collapsible-title{width:100%;background:transparent;border:0;color:var(--ink);font-family:'Aref Ruqaa',serif;font-size:1.1rem;cursor:pointer;text-align:right;display:flex;justify-content:space-between;align-items:center;}
   .collapsible-body{margin-top:12px;}.collapsed .collapsible-body{display:none;}
 
+  /* ===== الطريق: شجرة العلوم ===== */
+  .tree-hint{font-size:.8rem;color:var(--ink-soft);margin:-6px 0 12px;}
+  .tree-wrap{position:relative;background:radial-gradient(ellipse at 50% 100%,#1c1c1c,#0a0a0a 70%);border:1px solid #222;border-radius:18px;padding:26px 12px 10px;overflow:hidden;}
+  .tree-empty{color:#999;}
+  .tr-trunk{position:absolute;left:50%;transform:translateX(-50%);top:12px;bottom:44px;width:26px;z-index:0;
+    background:repeating-linear-gradient(90deg,#1b1b1b 0 3px,#2d2d2d 3px 5px,#151515 5px 9px);
+    clip-path:polygon(41% 0,59% 0,100% 100%,0 100%);}
+  .tr-row{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;align-items:center;padding:16px 0;direction:rtl;}
+  .tr-branch{position:absolute;top:50%;width:50%;height:48px;transform:translateY(-50%);overflow:visible;pointer-events:none;z-index:0;}
+  .tr-row.r .tr-branch{right:0;}
+  .tr-row.l .tr-branch{left:0;transform:translateY(-50%) scaleX(-1);}
+  .tr-branch path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round;}
+  .tr-branch .limb{stroke:#2b2b2b;stroke-width:10;}
+  .tr-branch .limb2{stroke:#6c6c6c;stroke-width:3;}
+  .tr-branch .twig{stroke:#4b4b4b;stroke-width:2;}
+  .tr-row.open .limb2{stroke:#d0d0d0;}
+  .tr-row.open .twig{stroke:#8a8a8a;}
+  .tr-branch.grow path{stroke-dasharray:1;stroke-dashoffset:1;animation:trGrow .9s ease-out forwards;animation-delay:var(--d,0s);}
+  @keyframes trGrow{to{stroke-dashoffset:0;}}
+  @media (prefers-reduced-motion:reduce){.tr-branch.grow path{animation:none;stroke-dashoffset:0;}}
+  .tr-node{position:relative;z-index:2;width:68%;background:#121212;border:1px solid #333;border-radius:14px;padding:10px 12px;text-align:right;color:#e8e8e8;cursor:pointer;font-family:inherit;transition:.15s;}
+  .tr-row.r .tr-node{grid-column:1;justify-self:start;}
+  .tr-row.l .tr-node{grid-column:2;justify-self:end;}
+  .tr-node:hover{border-color:#777;}
+  .tr-row.open .tr-node{border-color:#c4c4c4;box-shadow:0 0 18px rgba(255,255,255,.09);}
+  .tr-name{display:block;font-family:'Aref Ruqaa',serif;font-size:1.08rem;line-height:1.35;}
+  .tr-meta{display:block;font-size:.72rem;color:#8f8f8f;margin-top:2px;}
+  .tr-bar{display:block;height:3px;background:#262626;border-radius:3px;overflow:hidden;margin-top:7px;}
+  .tr-bar i{display:block;height:100%;background:linear-gradient(90deg,#777,#e0e0e0);}
+  .tr-panel{grid-column:1 / -1;margin-top:12px;background:#101010;border:1px solid #2a2a2a;border-radius:14px;padding:12px;color:#ddd;position:relative;z-index:2;}
+  .tr-panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:.78rem;color:#9a9a9a;}
+  .tr-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .tr-actions button{background:#1b1b1b;color:#d0d0d0;border:1px solid #353535;border-radius:999px;padding:4px 12px;font-family:inherit;font-size:.74rem;cursor:pointer;}
+  .tr-actions button:hover{border-color:#999;}
+  .tr-books{margin-top:6px;}
+  .tr-book{background:#161616;border-right:2px solid #3a3a3a;border-radius:8px;padding:9px 11px;margin-top:9px;}
+  .tr-book.cur{border-right-color:var(--gold);}
+  .tr-book.done{border-right-color:#e6e6e6;}
+  .tr-book-top{display:flex;align-items:center;gap:8px;}
+  .tr-dot{font-size:.8rem;color:#777;width:14px;text-align:center;}
+  .tr-book.cur .tr-dot{color:var(--gold);}
+  .tr-book.done .tr-dot{color:#e6e6e6;}
+  .tr-book-name{flex:1;font-size:.95rem;color:#eee;}
+  .tr-pct{font-size:.74rem;color:#888;}
+  .tr-book-sub{font-size:.7rem;color:#8a8a8a;margin-top:3px;}
+  .tr-book-cur{font-size:.78rem;color:#bbb;margin-top:5px;}
+  .tr-book .tr-actions{margin-top:8px;}
+  .tr-none{font-size:.82rem;color:#888;padding:12px 2px;}
+  .tr-roots{display:block;width:150px;height:36px;margin:0 auto;position:relative;z-index:1;}
+  .tr-roots path{fill:none;stroke:#2b2b2b;stroke-width:5;stroke-linecap:round;}
+
   /* ===== صفحة الحساب الجديدة: أوسمة وإحصائيات قابلة للطي ===== */
   .pf-top{display:flex;align-items:center;gap:16px;margin-bottom:14px;}
   .pf-top .avatar{width:88px;height:88px;flex:none;font-size:2.1rem;}
@@ -389,13 +440,14 @@ function toDateStr(d){
 
 function computeStreak(dateStrings){
   const set = new Set(dateStrings);
-  let cursor = new Date();
-  if(!set.has(toDateStr(cursor))){
-    cursor.setDate(cursor.getDate()-1);
-  }
-  let streak = 0;
-  while(set.has(toDateStr(cursor))){
-    streak++;
+  const vac = getVacations();
+  const cursor = new Date();
+  if(!set.has(toDateStr(cursor))) cursor.setDate(cursor.getDate()-1);
+  let streak = 0, guard = 0;
+  while(guard++ < 4000){
+    const ds = toDateStr(cursor);
+    if(set.has(ds)) streak++;
+    else if(!vac.has(ds)) break;     // يوم الإجازة لا يكسر السلسلة ولا يُحتسب فيها
     cursor.setDate(cursor.getDate()-1);
   }
   return streak;
@@ -805,6 +857,7 @@ function renderDailyView(){
     <div id="backupReminder"></div>
     <div id="currentBooks" class="current-books"></div>
     <div id="dailyGoal"></div>
+    <div id="vacationBar"></div>
     <div id="monthlySummary"></div>
     <div class="entry-box">
       <div class="row2">
@@ -928,13 +981,155 @@ function normalizeDigits(str){
   });
 }
 
+/* ============ الطريق: شجرة العلوم ============ */
+
+let trSubs = [], trOpen = null, trPresetDone = false, trDrawn = false;
+const TR_STATUS = {in_progress:{ic:'●', cls:'cur'}, complete:{ic:'✓', cls:'done'}, todo:{ic:'○', cls:'todo'}};
+const TR_TWIGS = [
+  'M14 38 C20 28,24 21,30 10 M26 36 C30 44,34 50,42 57',
+  'M12 37 C18 30,22 24,32 18 M30 34 C34 43,38 49,46 54',
+  'M16 36 C22 27,26 20,34 8 M22 38 C26 45,30 51,36 58'
+];
+const TR_ROOTS = '<svg class="tr-roots" viewBox="0 0 150 36" aria-hidden="true"><path d="M75 0 C75 12,45 14,12 34 M75 0 C75 12,105 14,138 34 M75 0 C73 16,70 26,64 36 M75 0 C77 16,80 26,88 36"/></svg>';
+
 async function renderPathView(){
-  if(currentSubjectId){
-    await renderSubjectDetail();
-  } else {
-    await renderSubjectsGrid();
+  const el = document.getElementById('pathView');
+  if(!el) return;
+  if(!document.getElementById('treeWrap')){
+    el.innerHTML = `
+      <div class="timeline-head">
+        <h2>الطريق</h2>
+        <button class="primary" onclick="openAddSubjectForm()">+ إضافة علم مخصص</button>
+      </div>
+      <div id="subjectFormWrap"></div>
+      <div class="tree-hint">اضغط على غصن أي علم لتفتح كتبه.</div>
+      <div id="treeWrap" class="tree-wrap"><div class="empty tree-empty">جاري التحميل...</div></div>`;
+    trDrawn = false;
   }
+  await trLoad();
 }
+
+async function trLoad(){
+  if(!trPresetDone){ await ensurePresetSubjects(); trPresetDone = true; }
+  const {data, error} = await sb.from('subjects').select('*').order('sort_order').order('created_at');
+  const wrap = document.getElementById('treeWrap');
+  if(!wrap) return;
+  if(error){ wrap.innerHTML = `<div class="empty tree-empty">تعذّر التحميل: ${escapeHtml(error.message)}</div>`; return; }
+  await refreshBooksCache();
+  trSubs = [...(data || [])].sort((a,b) => {
+    const ai = PRESET_SUBJECTS.indexOf(a.name), bi = PRESET_SUBJECTS.indexOf(b.name);
+    if(ai === -1 && bi === -1) return (a.sort_order || 0) - (b.sort_order || 0);
+    if(ai === -1) return 1;
+    if(bi === -1) return -1;
+    return ai - bi;
+  });
+  if(trOpen && !trSubs.some(s => s.id === trOpen)){ trOpen = null; currentSubjectId = null; }
+  trDraw();
+}
+
+async function loadSubjectsGrid(){ await trLoad(); }
+
+async function loadBooks(){
+  await refreshBooksCache();
+  renderCurrentBooks();
+  trDraw();
+}
+
+function trDraw(){
+  const wrap = document.getElementById('treeWrap');
+  if(!wrap) return;
+  if(!trSubs.length){ wrap.innerHTML = '<div class="empty tree-empty">لا توجد علوم بعد.</div>'; return; }
+  const grow = !trDrawn;
+  trDrawn = true;
+  wrap.innerHTML = `<div class="tr-trunk"></div>${trSubs.map((s,i) => trRowHtml(s, i, grow)).join('')}${TR_ROOTS}`;
+}
+
+function trBranchSvg(i, grow){
+  return `<svg class="tr-branch${grow ? ' grow' : ''}" style="--d:${(i * 0.12).toFixed(2)}s" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">
+    <path class="limb" pathLength="1" d="M0 38 C22 38,32 33,56 30 S86 27,100 30"/>
+    <path class="limb2" pathLength="1" d="M0 38 C22 38,32 33,56 30 S86 27,100 30"/>
+    <path class="twig" pathLength="1" d="${TR_TWIGS[i % 3]}"/>
+  </svg>`;
+}
+
+function trRowHtml(s, i, grow){
+  const side = i % 2 === 0 ? 'r' : 'l';
+  const books = booksCache.filter(b => b.subject_id === s.id);
+  const pcts = books.map(b => bookProgressPct(b).pct);
+  const avg = pcts.length ? Math.round(pcts.reduce((a,c) => a + c, 0) / pcts.length) : 0;
+  const open = trOpen === s.id;
+  return `<div class="tr-row ${side}${open ? ' open' : ''}" id="tr-${s.id}">
+    ${trBranchSvg(i, grow)}
+    <button class="tr-node" onclick="trToggle('${s.id}')" aria-expanded="${open}">
+      <span class="tr-name">${escapeHtml(s.name)}</span>
+      <span class="tr-meta">${books.length ? books.length + ' كتاب/متن · ' + avg + '%' : 'لا كتب بعد'}</span>
+      <span class="tr-bar"><i style="width:${avg}%"></i></span>
+    </button>
+    ${open ? trPanelHtml(s, books, avg) : ''}
+  </div>`;
+}
+
+function trPanelHtml(s, books, avg){
+  const matn = books.filter(b => (b.kind || 'matn') === 'matn');
+  const pg = books.filter(b => (b.kind || 'matn') === 'book');
+  const sum = (a, k) => a.reduce((t,b) => t + (b[k] || 0), 0);
+  const bd = [
+    matn.length ? `${sum(matn,'completed_lessons')}/${sum(matn,'total_lessons')} درس` : '',
+    pg.length ? `${sum(pg,'completed_pages')}/${sum(pg,'total_pages')} صفحة` : ''
+  ].filter(Boolean).join(' · ');
+  const isCustom = !PRESET_SUBJECTS.includes(s.name);
+  const rank = {in_progress:0, todo:1, complete:2};
+  const curLevels = new Set(books.filter(b => b.status === 'in_progress').map(b => b.level || 1));
+  const sorted = [...books].sort((a,b) =>
+    ((curLevels.has(a.level || 1) ? 0 : 1) - (curLevels.has(b.level || 1) ? 0 : 1)) ||
+    ((a.level || 1) - (b.level || 1)) ||
+    ((rank[a.status] ?? 9) - (rank[b.status] ?? 9)) ||
+    ((Number(a.sort_order) || 0) - (Number(b.sort_order) || 0)) ||
+    String(a.created_at || '').localeCompare(String(b.created_at || '')));
+  return `<div class="tr-panel">
+    <div class="tr-panel-head">
+      <span>متوسط الإنجاز ${avg}%${bd ? ' — ' + bd : ''}</span>
+      <span class="tr-actions"><button onclick="trAddBook('${s.id}')">+ إضافة كتاب</button>${isCustom ? `<button onclick="deleteSubject('${s.id}')">حذف العلم</button>` : ''}</span>
+    </div>
+    <div id="bookFormWrap"></div>
+    <div class="tr-books">${sorted.length ? sorted.map(trBookHtml).join('') : '<div class="tr-none">لسا ما أضفت كتب لهذا العلم. أضف أول كتاب أو متن ⤴</div>'}</div>
+  </div>`;
+}
+
+function trBookHtml(b){
+  const p = bookProgressPct(b);
+  const st = TR_STATUS[b.status] || TR_STATUS.todo;
+  const kind = (b.kind || 'matn') === 'book' ? 'كتاب' + ((b.volumes || 1) > 1 ? ' ' + arabicNumeral(b.volumes) + ' مجلدات' : '') : 'متن';
+  return `<div class="tr-book ${st.cls}">
+    <div class="tr-book-top"><span class="tr-dot">${st.ic}</span><span class="tr-book-name">${escapeHtml(b.name)}</span><span class="tr-pct">${p.pct}%</span></div>
+    <div class="tr-book-sub">المستوى ${arabicNumeral(b.level || 1)} · ${STATUS_LABELS[b.status] || ''} · ${kind} · ${p.done}/${p.total} ${p.unit}</div>
+    ${b.current_lesson ? `<div class="tr-book-cur">📝 ${escapeHtml(b.current_lesson)}</div>` : ''}
+    <div class="tr-bar"><i style="width:${p.pct}%"></i></div>
+    <div class="tr-actions"><button onclick="quickProgress('${b.id}')">＋ سجّل تقدّمي</button><button onclick="trEditBook('${b.id}')">تعديل</button><button onclick="deleteBook('${b.id}')">حذف</button></div>
+  </div>`;
+}
+
+function trToggle(id){
+  trOpen = trOpen === id ? null : id;
+  const s = trSubs.find(x => x.id === id);
+  currentSubjectId = trOpen;
+  currentSubjectName = (trOpen && s) ? s.name : '';
+  trDraw();
+  if(trOpen) document.getElementById('tr-' + id)?.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function trAddBook(id){
+  currentSubjectId = id;
+  openBookForm();
+  document.getElementById('bookFormWrap')?.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function trEditBook(id){
+  const b = booksCache.find(x => x.id === id);
+  if(!b) return;
+  currentSubjectId = b.subject_id;
+  openBookForm(b);
+  document.getElementById('bookFormWrap')?.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
 
 async function ensurePresetSubjects(){
   const {data:existing, error} = await sb.from('subjects').select('id,name');
@@ -945,20 +1140,6 @@ async function ensurePresetSubjects(){
     const rows = missing.map(name => ({name, sort_order: PRESET_SUBJECTS.indexOf(name)}));
     await sb.from('subjects').insert(rows);
   }
-}
-
-async function renderSubjectsGrid(){
-  const el = document.getElementById('pathView');
-  el.innerHTML = `
-    <div class="timeline-head">
-      <h2>الطريق</h2>
-      <button class="primary" onclick="openAddSubjectForm()">+ إضافة علم مخصص</button>
-    </div>
-    <div id="subjectFormWrap"></div>
-    <div id="subjectsGrid" class="subjects-grid"><div class="empty">جاري التحميل...</div></div>
-  `;
-  await ensurePresetSubjects();
-  await loadSubjectsGrid();
 }
 
 function openAddSubjectForm(){
@@ -991,123 +1172,6 @@ async function deleteSubject(id){
   if(!confirm('حذف هذا العلم وكل الكتب المسجّلة تحته؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
   await sb.from('subjects').delete().eq('id', id);
   await loadSubjectsGrid();
-}
-
-async function loadSubjectsGrid(){
-  const {data:subs, error} = await sb.from('subjects').select('*').order('sort_order').order('created_at');
-  const grid = document.getElementById('subjectsGrid');
-  if(error){ grid.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; return; }
-
-  const {data:books} = await sb.from('books').select('subject_id, kind, total_lessons, completed_lessons, total_pages, completed_pages');
-
-  const sorted = [...(subs||[])].sort((a,b)=>{
-    const ai = PRESET_SUBJECTS.indexOf(a.name); const bi = PRESET_SUBJECTS.indexOf(b.name);
-    if(ai===-1 && bi===-1) return (a.sort_order||0)-(b.sort_order||0);
-    if(ai===-1) return 1;
-    if(bi===-1) return -1;
-    return ai-bi;
-  });
-
-  if(sorted.length===0){
-    grid.innerHTML = `<div class="empty">لا توجد علوم بعد.</div>`;
-    return;
-  }
-
-  grid.innerHTML = sorted.map(s=>{
-    const subBooks = (books||[]).filter(b=>b.subject_id===s.id);
-    const pctList = subBooks.map(b=>bookProgressPct(b).pct);
-    const avgPct = pctList.length ? Math.round(pctList.reduce((a,c)=>a+c,0)/pctList.length) : 0;
-    const matnBooks = subBooks.filter(b=>(b.kind||'matn')==='matn');
-    const pageBooks = subBooks.filter(b=>(b.kind||'matn')==='book');
-    const lessonsDone = matnBooks.reduce((s2,b)=>s2+(b.completed_lessons||0),0);
-    const lessonsTotal = matnBooks.reduce((s2,b)=>s2+(b.total_lessons||0),0);
-    const pagesDone = pageBooks.reduce((s2,b)=>s2+(b.completed_pages||0),0);
-    const pagesTotal = pageBooks.reduce((s2,b)=>s2+(b.total_pages||0),0);
-    const breakdown = [
-      matnBooks.length ? `${lessonsDone}/${lessonsTotal} درس` : '',
-      pageBooks.length ? `${pagesDone}/${pagesTotal} صفحة` : ''
-    ].filter(Boolean).join(' · ');
-    const isCustom = !PRESET_SUBJECTS.includes(s.name);
-    const dataAttr = attrEscape(JSON.stringify({id:s.id, name:s.name}));
-    return `
-    <div class="path-card" data-subject="${dataAttr}" onclick="openSubject(JSON.parse(this.getAttribute('data-subject')))">
-      ${isCustom ? `<button class="ghost del" onclick="event.stopPropagation();deleteSubject('${s.id}')">حذف</button>` : ''}
-      <div class="sj-name">${escapeHtml(s.name)}</div>
-      <div class="sj-status">${subBooks.length} كتاب/متن</div>
-      <div class="sj-progress-bar"><div class="sj-progress-fill" style="width:${avgPct}%"></div></div>
-      <div class="sj-progress-label">متوسط الإنجاز: ${avgPct}%${breakdown ? ' — ' + breakdown : ''}</div>
-    </div>`;
-  }).join('');
-}
-
-function openSubject(s){
-  currentSubjectId = s.id;
-  currentSubjectName = s.name;
-  renderPathView();
-}
-
-function backToSubjects(){
-  currentSubjectId = null;
-  currentSubjectName = '';
-  renderPathView();
-}
-
-async function renderSubjectDetail(){
-  const el = document.getElementById('pathView');
-  el.innerHTML = `
-    <div class="timeline-head">
-      <div>
-        <button class="ghost" onclick="backToSubjects()">→ رجوع للطريق</button>
-        <h2 style="display:inline-block;margin-inline-start:10px">${escapeHtml(currentSubjectName)}</h2>
-      </div>
-      <button class="primary" onclick="openBookForm()">+ إضافة كتاب</button>
-    </div>
-    <div id="bookFormWrap"></div>
-    <div id="levelsWrap"><div class="empty">جاري التحميل...</div></div>
-  `;
-  await loadBooks();
-}
-
-async function loadBooks(){
-  const wrap = document.getElementById('levelsWrap');
-  if(!wrap){ await refreshBooksCache(); renderCurrentBooks(); return; }
-  const error = await refreshBooksCache();
-  if(error){ wrap.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; return; }
-  renderCurrentBooks();
-  const data = booksCache.filter(b => b.subject_id === currentSubjectId);
-  if(!data || data.length===0){
-    wrap.innerHTML = `<div class="empty">لسا ما أضفت كتب لهذا العلم. أضف أول كتاب أو متن ⤴</div>`;
-    return;
-  }
-  const levels = {};
-  data.forEach(b=>{
-    const lvl = b.level || 1;
-    if(!levels[lvl]) levels[lvl] = [];
-    levels[lvl].push(b);
-  });
-  const statusRank = {in_progress:0, todo:1, complete:2};
-  const sortBooks = (a,b) => {
-    const statusDiff = (statusRank[a.status] ?? 99) - (statusRank[b.status] ?? 99);
-    if(statusDiff) return statusDiff;
-    const sortDiff = (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
-    if(sortDiff) return sortDiff;
-    return String(a.created_at || '').localeCompare(String(b.created_at || ''));
-  };
-  Object.values(levels).forEach(list => list.sort(sortBooks));
-  const levelNums = Object.keys(levels).map(Number).sort((a,b)=>{
-    const aHasCurrent = levels[a].some(book => book.status === 'in_progress') ? 0 : 1;
-    const bHasCurrent = levels[b].some(book => book.status === 'in_progress') ? 0 : 1;
-    if(aHasCurrent !== bHasCurrent) return aHasCurrent - bHasCurrent;
-    return a - b;
-  });
-  wrap.innerHTML = levelNums.map(lvl => `
-    <div class="level-section">
-      <div class="level-title">المستوى (${arabicNumeral(lvl)})</div>
-      <div class="books-grid">
-        ${levels[lvl].map(b => bookCardHtml(b)).join('')}
-      </div>
-    </div>
-  `).join('');
 }
 
 function bookCardHtml(b){
@@ -2133,6 +2197,7 @@ function renderStats(list){
   const entries = list || entriesCache || [];
   const streak = computeStreak(entries.map(e => e.entry_date));
   renderDailyGoal(entries);
+  renderVacationBar();
   renderBackupReminder();
   renderBackupInfo();
   const availableKeys = [...new Set(entries.map(e => entryMonthKey(e.entry_date)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
@@ -2246,6 +2311,83 @@ function renderDailyGoal(entries){
       </div>
       <div class="sj-progress-bar" style="margin:8px 0 0"><div class="sj-progress-fill" style="width:${pct}%"></div></div>
       ${done ? '<div class="hint" style="color:var(--green)">أنجزت هدف اليوم، بارك الله فيك ✓</div>' : '<div class="hint">يُحسب كل درس مرة واحدة في اليوم. جلسات «مراجعة» لا تُحسب.</div>'}
+    </div>`;
+}
+
+/* ============ أيام الإجازة: لا تكسر سلسلة المداومة ============ */
+
+const VAC_KEY = 'rihla_vacations';
+let vacOpen = false;
+
+function getVacations(){
+  try{ return new Set(JSON.parse(localStorage.getItem(VAC_KEY) || '[]')); }catch(e){ return new Set(); }
+}
+function saveVacations(set){
+  try{ localStorage.setItem(VAC_KEY, JSON.stringify([...set].sort())); }catch(e){}
+}
+function vacNext(ds){
+  const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() + 1); return toDateStr(d);
+}
+function vacRanges(set){
+  const out = [];
+  [...set].sort().forEach(ds => {
+    const last = out[out.length - 1];
+    if(last && vacNext(last.to) === ds) last.to = ds; else out.push({from:ds, to:ds});
+  });
+  return out;
+}
+function vacRefresh(){
+  renderStats(entriesCache);
+  if(typeof renderProfileView === 'function') renderProfileView();
+}
+function toggleVacationToday(){
+  const s = getVacations(), t = toDateStr(new Date());
+  if(s.has(t)) s.delete(t); else s.add(t);
+  saveVacations(s);
+  vacRefresh();
+}
+function addVacationRange(){
+  const f = document.getElementById('vacFrom')?.value;
+  const t = document.getElementById('vacTo')?.value || f;
+  if(!f){ showToast('اختر تاريخ البداية', 'warn'); return; }
+  if(t < f){ showToast('تاريخ النهاية قبل البداية', 'warn'); return; }
+  const s = getVacations();
+  let d = f, n = 0;
+  while(d <= t && n < 90){ s.add(d); d = vacNext(d); n++; }
+  if(d <= t) showToast('الحد الأقصى ٩٠ يومًا في الإضافة الواحدة', 'warn');
+  saveVacations(s);
+  vacOpen = false;
+  vacRefresh();
+  showToast('تمت إضافة الإجازة ✓');
+}
+function removeVacationRange(from, to){
+  const s = getVacations();
+  let d = from;
+  while(d <= to){ s.delete(d); d = vacNext(d); }
+  saveVacations(s);
+  vacRefresh();
+}
+function renderVacationBar(){
+  const el = document.getElementById('vacationBar');
+  if(!el) return;
+  const set = getVacations();
+  const today = toDateStr(new Date());
+  const isVac = set.has(today);
+  const cut = new Date(); cut.setDate(cut.getDate() - 30);
+  const ranges = vacRanges(set).filter(r => r.to >= toDateStr(cut));
+  const fmt = ds => new Date(ds + 'T00:00:00').toLocaleDateString('ar-u-nu-latn-ca-gregory', {day:'numeric', month:'short'});
+  el.innerHTML = `
+    <div class="goal-card${isVac ? ' goal-done' : ''}">
+      <div class="goal-row">
+        <span>🏖 ${isVac ? 'اليوم إجازة — سلسلتك محفوظة' : 'يوم إجازة'}</span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="ghost" onclick="toggleVacationToday()">${isVac ? 'إلغاء إجازة اليوم' : 'اليوم إجازة'}</button>
+          <button class="ghost" onclick="vacOpen=!vacOpen;renderVacationBar()">${vacOpen ? 'إغلاق' : 'جدولة أيام'}</button>
+        </span>
+      </div>
+      ${vacOpen ? `<div class="row2" style="margin-top:10px"><div class="field"><label>من</label><input type="date" id="vacFrom" value="${today}"></div><div class="field"><label>إلى</label><input type="date" id="vacTo" value="${today}"></div></div><button class="primary" onclick="addVacationRange()">إضافة الإجازة</button>` : ''}
+      ${ranges.length ? `<div class="tags-row" style="margin-top:10px">${ranges.map(r => `<span class="tag-chip" style="cursor:pointer" title="اضغط لإلغاء هذه الإجازة" onclick="removeVacationRange('${r.from}','${r.to}')">🏖 ${fmt(r.from)}${r.to !== r.from ? ' ← ' + fmt(r.to) : ''} ✕</span>`).join('')}</div>` : ''}
+      <div class="hint">يوم الإجازة لا يكسر سلسلة المداومة، ولا يُحتسب يومًا فيها.</div>
     </div>`;
 }
 
@@ -2374,11 +2516,19 @@ function pfDate(ds){
 // أطول سلسلة أيام متتالية + أول تاريخ بلغت فيه السلسلة كل طول
 function pfLongestStreak(dates){
   const days = [...new Set((dates || []).filter(Boolean))].sort();
+  const vac = getVacations();
+  const DAY = 86400000;
+  const bridged = (a, b) => {
+    for(let x = a + DAY; x < b; x += DAY){
+      if(!vac.has(new Date(x).toISOString().slice(0,10))) return false;
+    }
+    return true;
+  };
   let best = 0, run = 0, prev = null;
   const reached = {};
   days.forEach(ds => {
     const t = Date.UTC(+ds.slice(0,4), +ds.slice(5,7) - 1, +ds.slice(8,10));
-    run = (prev !== null && t - prev === 86400000) ? run + 1 : 1;
+    run = (prev !== null && bridged(prev, t)) ? run + 1 : 1;
     prev = t;
     if(run > best) best = run;
     if(reached[run] === undefined) reached[run] = ds;
