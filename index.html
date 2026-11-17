@@ -297,7 +297,7 @@
   .calendar-day.studied{background:var(--green);color:var(--paper);font-weight:700;cursor:default;}
   .calendar-day.today{border-color:var(--gold);}
   .calendar-day.empty-day{visibility:hidden;}
-  .profile-head{display:flex;align-items:center;gap:14px;margin-bottom:18px;}
+  .profile-head{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:18px;}
   .avatar{width:72px;height:72px;border-radius:50%;object-fit:cover;background:var(--green-deep);color:var(--paper);display:grid;place-items:center;font-family:'Aref Ruqaa',serif;font-size:1.8rem;border:2px solid var(--gold);}
   .profile-name{font-family:'Aref Ruqaa',serif;font-size:1.45rem;color:var(--green-deep);}
   .profile-handle{font-size:.8rem;color:var(--ink-soft);direction:ltr;text-align:right;}
@@ -308,6 +308,9 @@
   .achievement{padding:12px;background:var(--paper);border-right:3px solid var(--rule);font-size:.82rem;}
   .achievement.unlocked{border-right-color:var(--gold);}
   .achievement small{display:block;color:var(--ink-soft);margin-top:4px;}
+  .header-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:var(--green-deep);color:var(--paper);border:2px solid var(--gold);display:grid;place-items:center;font-family:'Aref Ruqaa',serif;cursor:pointer;padding:0;overflow:hidden;}
+  .collapsible-title{width:100%;background:transparent;border:0;color:var(--ink);font-family:'Aref Ruqaa',serif;font-size:1.1rem;cursor:pointer;text-align:right;display:flex;justify-content:space-between;align-items:center;}
+  .collapsible-body{margin-top:12px;}.collapsed .collapsible-body{display:none;}
 </style>
 </head>
 <body>
@@ -523,6 +526,7 @@ function renderAuth(){
     <p style="color:var(--ink-soft);font-size:.88rem">سجّل دخولك ببريدك حتى يبقى سجلك خاصًا فيك، حتى لو صار رابط الصفحة عام.</p>
     <input id="authEmail" type="email" placeholder="البريد الإلكتروني">
     <input id="authPass" type="password" placeholder="كلمة السر (6 أحرف على الأقل)">
+    <input id="authHandle" type="text" placeholder="المعرّف المميز (عند إنشاء حساب جديد) مثل: talib_ilm">
     <div id="authMsg" style="color:var(--red);font-size:.8rem;margin-bottom:8px"></div>
     <button class="primary" onclick="signIn()" style="width:100%;margin-bottom:8px">دخول</button>
     <button class="ghost" onclick="signUp()" style="width:100%;margin-bottom:8px">إنشاء حساب جديد</button>
@@ -542,11 +546,12 @@ async function signIn(){
 async function signUp(){
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPass').value;
-  if(!email || password.length < 6){
-    document.getElementById('authMsg').textContent = 'أدخل بريدًا وكلمة سر لا تقل عن 6 أحرف';
+  const handle = document.getElementById('authHandle').value.trim().toLowerCase().replace(/^@/, '');
+  if(!email || password.length < 6 || !/^[a-z0-9_]{3,24}$/.test(handle)){
+    document.getElementById('authMsg').textContent = 'أدخل بريدًا وكلمة سر، ومعرّفًا من 3 إلى 24 حرفًا إنجليزيًا أو رقمًا أو _';
     return;
   }
-  const {data, error} = await sb.auth.signUp({email, password});
+  const {data, error} = await sb.auth.signUp({email, password, options:{data:{pending_handle:handle}}});
   if(error){ document.getElementById('authMsg').textContent = error.message; return; }
   if(data.session){ await renderApp(); }
   else { document.getElementById('authMsg').style.color = 'var(--green)'; document.getElementById('authMsg').textContent = 'تم إنشاء الحساب. تحقق من بريدك لتفعيله ثم سجّل دخولك.'; }
@@ -569,8 +574,7 @@ async function renderApp(){
       <span style="display:flex;align-items:center;gap:8px">
         <button class="ghost" id="themeToggle" onclick="toggleTheme()">🌙</button>
         <span id="status-pill">متصل</span>
-        <button class="ghost" onclick="renderPasswordScreen('change')" title="تغيير كلمة السر">🔑</button>
-        <button class="ghost" onclick="signOut()">خروج</button>
+        <button class="header-avatar" id="headerAvatar" onclick="switchTab('profile')" title="الحساب">👤</button>
       </span>
     </header>
 
@@ -593,6 +597,7 @@ async function renderApp(){
   renderDailyView();
   renderFocusView();
   renderProfileView();
+  openProfile();
 }
 
 function switchTab(tab){
@@ -2239,8 +2244,16 @@ function renderAchievements(entries, books){
     {ok:completed >= 1, icon:'📚', title:'ختم كتاب', text:'أكملت كتابًا واحدًا على الأقل'},
     {ok:streak >= 7, icon:'🔥', title:'أسبوع متصل', text:`أطول سلسلة حالية: ${streak} أيام`}
   ];
-  return `<div class="achievement-card"><div class="timeline-head"><h2>سجل الإنجازات</h2></div><div class="achievements-grid">${items.map(x=>`<div class="achievement${x.ok?' unlocked':''}"><b>${x.icon} ${x.title}</b><small>${x.ok ? 'تم الإنجاز ✓ — ' : 'قيد الإنجاز — '}${x.text}</small></div>`).join('')}</div></div>`;
+  items.push(
+    {ok:focusMinutes >= 60, icon:'🌱', title:'ساعة صفاء', text:'أكملت ساعة تركيز'},
+    {ok:sessions >= 10, icon:'🎯', title:'عشر جلسات', text:`سجّلت ${sessions} جلسة`},
+    {ok:books.length >= 3, icon:'🧭', title:'ثلاثة كتب', text:`درست ${books.length} كتب`},
+    {ok:focusMinutes >= 3000, icon:'🏆', title:'خمسون ساعة', text:`أنجزت ${focusHoursLabel(focusMinutes)}`}
+  );
+  return `<div class="achievement-card" id="achievementsCard"><button class="collapsible-title" onclick="toggleCollapse('achievementsCard')">سجل الإنجازات <span>⌄</span></button><div class="collapsible-body"><div class="achievements-grid">${items.map(x=>`<div class="achievement${x.ok?' unlocked':''}"><b>${x.icon} ${x.title}</b><small>${x.ok ? 'تم الإنجاز ✓ — ' : 'قيد الإنجاز — '}${x.text}</small></div>`).join('')}</div></div></div>`;
 }
+
+function toggleCollapse(id){ document.getElementById(id)?.classList.toggle('collapsed'); }
 
 function studiedBooks(entries){
   const ids = new Set((entries || []).filter(e => e.book_id).map(e => e.book_id));
@@ -2251,8 +2264,12 @@ async function openProfile(){
   await Promise.all([refreshBooksCache(), loadEntries()]);
   const {data:{session}} = await sb.auth.getSession();
   accountCreatedAt = session?.user?.created_at || null;
-  const {data, error} = await sb.from('profiles').select('display_name, handle, avatar_url, created_at').maybeSingle();
+  const {data, error} = await sb.from('profiles').select('display_name, handle, avatar_url, created_at, handle_changed_at').maybeSingle();
   if(!error) profileCache = data;
+  if(!profileCache && session?.user?.user_metadata?.pending_handle){
+    const res = await sb.from('profiles').insert({user_id:session.user.id, display_name:'', handle:session.user.user_metadata.pending_handle}).select().single();
+    if(!res.error) profileCache = res.data;
+  }
   renderProfileView();
 }
 
@@ -2262,6 +2279,9 @@ async function saveProfile(){
   const avatar_url = document.getElementById('profileAvatar').value.trim();
   if(!display_name){ alert('اكتب اسمك أولًا'); return; }
   if(!/^[a-z0-9_]{3,24}$/.test(handle)){ alert('المعرّف من 3 إلى 24 حرفًا إنجليزيًا أو رقمًا أو شرطة سفلية فقط.'); return; }
+  if(profileCache?.handle && handle !== profileCache.handle && profileCache.handle_changed_at && Date.now() - new Date(profileCache.handle_changed_at).getTime() < 30 * 86400000){
+    alert('يمكن تغيير المعرّف مرة كل 30 يومًا فقط.'); return;
+  }
   if(avatar_url && !/^https:\/\//i.test(avatar_url)){ alert('ضع رابط صورة يبدأ بـ https:// أو اتركه فارغًا.'); return; }
   const {data:{session}} = await sb.auth.getSession();
   const {data, error} = await sb.from('profiles').upsert({user_id:session.user.id, display_name, handle, avatar_url:avatar_url || null}, {onConflict:'user_id'}).select().single();
@@ -2269,6 +2289,20 @@ async function saveProfile(){
   profileCache = data;
   showToast('تم حفظ الحساب ✓');
   renderProfileView();
+}
+
+async function uploadAvatar(input){
+  const file = input.files?.[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/') || file.size > 2 * 1024 * 1024){ alert('اختر صورة بحجم لا يتجاوز 2 ميغابايت.'); return; }
+  const {data:{session}} = await sb.auth.getSession();
+  const ext = (file.name.split('.').pop() || 'jpg').replace(/[^a-z0-9]/gi,'');
+  const path = `${session.user.id}/avatar.${ext}`;
+  const {error} = await sb.storage.from('profile-avatars').upload(path, file, {upsert:true, contentType:file.type});
+  if(error){ showToast('تعذّر رفع الصورة: ' + error.message, 'warn'); return; }
+  const {data} = sb.storage.from('profile-avatars').getPublicUrl(path);
+  document.getElementById('profileAvatar').value = data.publicUrl;
+  showToast('تم رفع الصورة؛ اضغط حفظ الحساب لتثبيتها.');
 }
 
 function renderProfileView(){
@@ -2280,18 +2314,24 @@ function renderProfileView(){
   const focusMinutes = entriesCache.filter(e => e.type === 'tarkiz').reduce((s,e) => s + (Number(e.focus_minutes) || 0), 0);
   const books = studiedBooks(entriesCache);
   const created = accountCreatedAt || p.created_at;
+  const canChangeHandle = !p.handle_changed_at || (Date.now() - new Date(p.handle_changed_at).getTime()) >= 30 * 86400000;
+  const nextHandleChange = p.handle_changed_at ? new Date(new Date(p.handle_changed_at).getTime() + 30 * 86400000).toLocaleDateString('ar-SA') : '';
   const avatar = p.avatar_url ? `<img class="avatar" src="${attrEscape(p.avatar_url)}" alt="صورة الحساب" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'avatar',textContent:'${attrEscape(initials(name))}'}))">` : `<div class="avatar">${escapeHtml(initials(name))}</div>`;
+  const header = document.getElementById('headerAvatar');
+  if(header) header.innerHTML = p.avatar_url ? `<img src="${attrEscape(p.avatar_url)}" alt="الحساب" style="width:100%;height:100%;object-fit:cover">` : escapeHtml(initials(name));
   el.innerHTML = `
     ${renderCalendar(entriesCache)}
     <div class="profile-card">
-      <div class="profile-head">${avatar}<div><div class="profile-name">${escapeHtml(name || 'أكمل بيانات حسابك')}</div><div class="profile-handle">${handle ? '@' + escapeHtml(handle) : 'اختر معرّفًا مميزًا لميزة الأصدقاء مستقبلًا'}</div></div></div>
+      <div class="profile-head">${avatar}<div><div class="profile-name">${name ? 'مرحبًا، ' + escapeHtml(name) : 'أكمل بيانات حسابك'}</div><div class="profile-handle">${handle ? '@' + escapeHtml(handle) : 'اختر معرّفًا مميزًا لميزة الأصدقاء مستقبلًا'}</div></div></div>
       <div class="profile-stats"><div class="profile-stat"><b>${focusHoursLabel(focusMinutes)}</b>إجمالي التركيز</div><div class="profile-stat"><b>${books.length}</b>كتب دَرستها</div><div class="profile-stat"><b>${created ? formatDate(created.slice(0,10)) : '—'}</b>تاريخ التسجيل</div></div>
-      <div class="row2"><div class="field"><label>الاسم</label><input id="profileName" value="${attrEscape(name)}" placeholder="اسمك الظاهر"></div><div class="field"><label>المعرّف المميز</label><input id="profileHandle" value="${attrEscape(handle)}" placeholder="مثال: talib_ilm"></div></div>
+      <div class="row2"><div class="field"><label>الاسم</label><input id="profileName" value="${attrEscape(name)}" placeholder="اسمك الظاهر"></div><div class="field"><label>المعرّف المميز</label><input id="profileHandle" value="${attrEscape(handle)}" placeholder="مثال: talib_ilm" ${canChangeHandle ? '' : 'disabled'}><div class="hint">${canChangeHandle ? 'يمكن تغيير المعرف مرة كل 30 يومًا.' : 'المعرّف ثابت حاليًا. التغيير التالي: ' + nextHandleChange}</div></div></div>
       <div class="field"><label>رابط الصورة (اختياري)</label><input id="profileAvatar" value="${attrEscape(p.avatar_url || '')}" placeholder="https://example.com/photo.jpg"></div>
+      <div class="field"><label>أو ارفع صورة من الجهاز</label><input type="file" accept="image/*" onchange="uploadAvatar(this)"></div>
       <button class="primary" onclick="saveProfile()">حفظ الحساب</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="ghost" onclick="renderPasswordScreen('change')">تغيير كلمة السر</button><button class="ghost" onclick="signOut()">خروج</button></div>
     </div>
     ${renderAchievements(entriesCache, booksCache)}
-    <div class="profile-card"><div class="timeline-head"><h2>الكتب التي درستها</h2></div>${books.length ? `<div class="tags-row">${books.map(b=>`<span class="tag-chip">📖 ${escapeHtml(b.name)}</span>`).join('')}</div>` : '<div class="hint">اربط جلسة تركيز بكتاب ليظهر هنا.</div>'}</div>`;
+    <div class="profile-card" id="studiedBooksCard"><button class="collapsible-title" onclick="toggleCollapse('studiedBooksCard')">الكتب التي أنجزتها <span>⌄</span></button><div class="collapsible-body">${books.filter(b=>b.status==='complete').length ? `<div class="tags-row">${books.filter(b=>b.status==='complete').map(b=>`<span class="tag-chip">📖 ${escapeHtml(b.name)}</span>`).join('')}</div>` : '<div class="hint">ستظهر هنا الكتب التي أصبحت حالتها «خلصته».</div>'}</div></div>`;
 }
 
 let statsRange = 7;
