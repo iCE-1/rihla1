@@ -1710,13 +1710,11 @@ async function logFocusSession(minutes, phaseLabel, tag, link){
     book_id: book ? book.id : null,
     lesson_number: n || null
   };
-  try{
-    const {error} = await sb.from('entries').insert(payload);
-    if(error && /book_id|lesson_number/.test(error.message || '')){
-      const {book_id, lesson_number, ...rest} = payload;
-      await sb.from('entries').insert(rest);
-    }
-  }catch(e){ /* لا نعطّل المؤقت لو فشل التسجيل التلقائي */ }
+  const {error} = await saveEntryRow(payload);
+  if(error){
+    // لا نحفظ نسخة غير مربوطة بالكتاب؛ وإلا تختفي الجلسة من إحصائياته ولا يمكن تعديلها لاحقًا.
+    showToast('تعذّر حفظ جلسة التركيز: ' + error.message, 'warn');
+  }
 }
 
 function advancePomodoro(){
@@ -1797,13 +1795,7 @@ async function saveEntryRow(payload, id){
   const run = p => id
     ? sb.from('entries').update(p).eq('id', id)
     : sb.from('entries').insert(p);
-  let res = await run(payload);
-  if(res.error && /book_id|lesson_number/.test(res.error.message || '')){
-    const {book_id, lesson_number, ...rest} = payload;
-    res = await run(rest);
-    if(!res.error) showToast('تم الحفظ، لكن لم يُربط بالكتاب. نفّذ ملف SQL في Supabase أولاً.', 'warn');
-  }
-  return res;
+  return run(payload);
 }
 
 async function addEntry(){
@@ -1835,13 +1827,22 @@ async function addEntry(){
   await loadEntries();
 }
 
+function findBookIdFromTags(tags){
+  const normalizedTags = new Set(splitTags(tags).map(normalizeLessonKey));
+  const matches = booksCache.filter(book => normalizedTags.has(normalizeLessonKey(book.name)));
+  // لا نخمن عند وجود كتابين بالاسم نفسه؛ يختاره المستخدم بنفسه عند التعديل.
+  return matches.length === 1 ? matches[0].id : '';
+}
+
 function startEditEntry(id){
   const entry = entriesById.get(id);
   if(!entry) return;
   editingEntryId = id;
   const sel = document.getElementById('entryBook');
-  sel.innerHTML = bookOptionsHtml(entry.book_id || '');
-  sel.value = entry.book_id || '';
+  // القيود القديمة قد تكون محفوظة قبل إضافة book_id؛ نستعيد الكتاب من الوسم إن أمكن.
+  const linkedBookId = entry.book_id || findBookIdFromTags(entry.tags);
+  sel.innerHTML = bookOptionsHtml(linkedBookId || '');
+  sel.value = linkedBookId || '';
   document.getElementById('dateInput').value = entry.entry_date || '';
   onEntryBookChange();
   document.getElementById('entryLesson').value = entry.lesson_number || '';
@@ -1950,7 +1951,7 @@ function renderTimeline(){
   const renderEntry = e => `
     <div class="day-entry">
       <button class="ghost del" onclick="deleteEntry('${e.id}')">حذف</button>
-      ${e.book_id ? `<button class="ghost edit" onclick="startEditEntry('${e.id}')">تعديل</button>` : ''}
+      ${e.type === 'tarkiz' ? `<button class="ghost edit" onclick="startEditEntry('${e.id}')">تعديل</button>` : ''}
       <div class="date">${formatDate(e.entry_date)} <span class="tag">${tagLabel(e.type)}</span></div>
       <p>${escapeHtml(e.content)}</p>
       ${e.tags ? `<div class="tags-row">${splitTags(e.tags).map(t=>`<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
@@ -2210,6 +2211,12 @@ function renderStatsView(){
   const avg = Math.round(total / statsRange * 10) / 10;
   const best = days.reduce((a, b) => b.n > a.n ? b : a, days[0]);
   const max = Math.max(1, ...days.map(x => x.n));
+  const firstDay = days[0].ds;
+  const focusSessions = entriesCache.filter(e => e.type === 'tarkiz' && e.entry_date >= firstDay);
+  const focusMinutes = focusSessions.reduce((sum, e) => sum + Math.max(0, Number(e.focus_minutes) || 0), 0);
+  const focusLabel = focusMinutes >= 60
+    ? `${Math.floor(focusMinutes / 60)}س ${focusMinutes % 60}د`
+    : `${focusMinutes}د`;
   const dayLabel = x => statsRange === 7
     ? x.d.toLocaleDateString('ar', {weekday:'short'})
     : (x.idx % 5 === 0 || x.idx === statsRange - 1 ? arabicNumeral(x.d.getDate()) : '');
@@ -2269,6 +2276,11 @@ function renderStatsView(){
   }).join('') : `<div class="empty" style="padding:26px 20px">لا يوجد كتاب تدرسه الآن.</div>`;
 
   el.innerHTML = `
+    <div class="stats-row" style="margin-bottom:22px">
+      <div class="stat"><span class="num">${focusSessions.length}</span><span class="lbl">جلسات تركيز</span></div>
+      <div class="stat"><span class="num">${focusLabel}</span><span class="lbl">وقت التركيز</span></div>
+      <div class="stat"><span class="num">${total}</span><span class="lbl">دروس جديدة</span></div>
+    </div>
     <div class="timeline-head">
       <h2>الدروس</h2>
       <div class="tag-choices">
