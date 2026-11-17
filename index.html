@@ -264,6 +264,9 @@
   @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
   .focus-target{text-align:center;font-size:.9rem;color:var(--gold);min-height:1.3em;margin:-8px 0 16px;font-weight:500;}
   .field input:disabled{opacity:.55;cursor:not-allowed;}
+  .tag-group-bar{display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;}
+  .tag-group-bar .tag-group-head{flex:1;margin-bottom:0;}
+  .tag-group.collapsed .tag-group-bar{margin-bottom:0;}
 </style>
 </head>
 <body>
@@ -1814,6 +1817,26 @@ async function loadEntries(){
   renderTimeline();
 }
 
+function mainTagOf(entry){
+  return splitTags(entry.tags)[0] || 'بدون وسم';
+}
+
+async function deleteTagGroup(tag){
+  const group = entriesCache.filter(e => mainTagOf(e) === tag);
+  if(!group.length) return;
+  const sessions = group.filter(e => e.type === 'tarkiz');
+  const minutes = sessions.reduce((sum, e) => sum + (e.focus_minutes || 0), 0);
+  const label = tag === 'بدون وسم' ? 'القيود بدون وسم' : `الوسم «${tag}»`;
+  const details = `${group.length} قيد` + (sessions.length ? ` (منها ${sessions.length} جلسة تركيز بمجموع ${minutes} دقيقة)` : '');
+  if(!confirm(`⚠️ تحذير\n\nسيتم حذف ${label} نهائيًا مع كل قيوده: ${details}.\n\nلا يمكن التراجع عن هذا الإجراء، وسيتغير ملخص الشهر ووقت التركيز.\nتقدّم الكتب في «الطريق» لا يتأثر.\n\nهل تريد المتابعة؟`)) return;
+  const {error} = await sb.from('entries').delete().in('id', group.map(e => e.id));
+  if(error){ alert('صار خطأ: ' + error.message); return; }
+  collapsedTagGroups.delete(tag);
+  localStorage.setItem('rihla_collapsed_tag_groups', JSON.stringify([...collapsedTagGroups]));
+  showToast(`تم حذف ${group.length} قيد`);
+  await loadEntries();
+}
+
 let tagSearchTimer = null;
 function onTagSearch(){
   clearTimeout(tagSearchTimer);
@@ -1839,7 +1862,7 @@ function renderTimeline(){
   const groupedEntries = new Map();
   data.forEach(entry => {
     // أول وسم هو الوسم الرئيسي: يضع كل قيد في مجموعة واحدة من دون تكرار.
-    const mainTag = splitTags(entry.tags)[0] || 'بدون وسم';
+    const mainTag = mainTagOf(entry);
     if(!groupedEntries.has(mainTag)) groupedEntries.set(mainTag, []);
     groupedEntries.get(mainTag).push(entry);
   });
@@ -1856,10 +1879,13 @@ function renderTimeline(){
 
   timeline.innerHTML = [...groupedEntries.entries()].map(([tag, entries]) => `
     <section class="tag-group${collapsedTagGroups.has(tag) ? ' collapsed' : ''}">
-      <button type="button" class="tag-group-head" data-tag="${attrEscape(tag)}" onclick="toggleTagGroup(this)" aria-expanded="${!collapsedTagGroups.has(tag)}">
-        <h3>${tag === 'بدون وسم' ? 'بدون وسم' : '#'+escapeHtml(tag)}</h3>
-        <span style="display:flex;align-items:center;gap:8px"><span class="tag-group-count">${entries.length} ${entries.length===1 ? 'قيد' : 'قيود'}</span><span class="tag-group-chevron">⌄</span></span>
-      </button>
+      <div class="tag-group-bar">
+        <button type="button" class="tag-group-head" data-tag="${attrEscape(tag)}" onclick="toggleTagGroup(this)" aria-expanded="${!collapsedTagGroups.has(tag)}">
+          <h3>${tag === 'بدون وسم' ? 'بدون وسم' : '#'+escapeHtml(tag)}</h3>
+          <span style="display:flex;align-items:center;gap:8px"><span class="tag-group-count">${entries.length} ${entries.length===1 ? 'قيد' : 'قيود'}</span><span class="tag-group-chevron">⌄</span></span>
+        </button>
+        <button type="button" class="ghost" data-tag="${attrEscape(tag)}" onclick="deleteTagGroup(this.dataset.tag)" title="حذف الوسم وكل قيوده">🗑 حذف الوسم</button>
+      </div>
       <div class="tag-group-entries"><div>${entries.map(renderEntry).join('')}</div></div>
     </section>
   `).join('');
