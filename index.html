@@ -267,6 +267,28 @@
   .tag-group-bar{display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;}
   .tag-group-bar .tag-group-head{flex:1;margin-bottom:0;}
   .tag-group.collapsed .tag-group-bar{margin-bottom:0;}
+  .tabs-nav{overflow-x:auto;white-space:nowrap;}
+  @media(max-width:480px){.tab-btn{padding:9px 11px;font-size:.82rem;}}
+  .toast-action{margin-inline-start:12px;background:transparent;border:1px solid currentColor;color:inherit;padding:2px 12px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:.8rem;}
+
+  .goal-card{background:var(--paper-dark);border:1px solid var(--rule);border-right:4px solid var(--gold);padding:12px 16px;margin-bottom:22px;font-size:.88rem;}
+  .goal-card.goal-done{border-right-color:var(--green);}
+  .goal-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+
+  .stat-line{font-size:.88rem;line-height:1.9;margin:14px 0 6px;}
+  .bars{display:flex;align-items:stretch;gap:4px;height:170px;margin:10px 0 4px;padding-bottom:2px;border-bottom:1px solid var(--rule);}
+  .bar-col{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;}
+  .bar-val{height:16px;font-size:.7rem;color:var(--ink-soft);}
+  .bar-wrap{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;}
+  .bar{width:70%;max-width:34px;min-height:2px;background:var(--green);opacity:.75;border-radius:2px 2px 0 0;}
+  .bar.met{background:var(--gold);opacity:1;}
+  .bars-lbl{display:flex;gap:4px;}
+  .bars-lbl span{flex:1;min-width:0;text-align:center;font-size:.68rem;color:var(--ink-soft);}
+  .book-stat{background:var(--paper-dark);border:1px solid var(--rule);border-right:4px solid var(--gold);padding:12px 16px;margin-bottom:12px;}
+  .book-stat .forecast{font-size:.8rem;color:var(--ink-soft);margin-top:8px;line-height:1.7;}
+
+  .backup-box{background:var(--paper-dark);border:1px solid var(--rule);padding:14px 16px;margin:26px 0 10px;}
+  .backup-head{font-family:'Aref Ruqaa',serif;font-size:1.1rem;color:var(--green-deep);}
 </style>
 </head>
 <body>
@@ -537,11 +559,13 @@ async function renderApp(){
       <button class="tab-btn active" id="tabDaily" onclick="switchTab('daily')">السجل اليومي</button>
       <button class="tab-btn" id="tabPath" onclick="switchTab('path')">الطريق</button>
       <button class="tab-btn" id="tabFocus" onclick="switchTab('focus')">التركيز</button>
+      <button class="tab-btn" id="tabStats" onclick="switchTab('stats')">الإحصائيات</button>
     </div>
 
     <div id="dailyView"></div>
     <div id="pathView" style="display:none"></div>
     <div id="focusView" style="display:none"></div>
+    <div id="statsView" style="display:none"></div>
   `;
 
   applyTheme();
@@ -551,7 +575,7 @@ async function renderApp(){
 
 function switchTab(tab){
   if(tab==='path') currentSubjectId = null;
-  const tabs = {daily:['tabDaily','dailyView'], path:['tabPath','pathView'], focus:['tabFocus','focusView']};
+  const tabs = {daily:['tabDaily','dailyView'], path:['tabPath','pathView'], focus:['tabFocus','focusView'], stats:['tabStats','statsView']};
   Object.entries(tabs).forEach(([k,[btn,view]])=>{
     document.getElementById(btn).classList.toggle('active', k===tab);
     document.getElementById(view).style.display = k===tab ? '' : 'none';
@@ -559,6 +583,7 @@ function switchTab(tab){
   if(tab==='path') renderPathView();
   if(tab==='daily'){ loadEntries(); syncBooksUi(); }
   if(tab==='focus') syncBooksUi();
+  if(tab==='stats') openStats();
 }
 
 /* ============ الكتب: ذاكرة مؤقتة + ربط بالسجل والتركيز ============ */
@@ -630,7 +655,7 @@ function renderCurrentBooks(){
   `;
 }
 
-function showToast(msg, kind){
+function showToast(msg, kind, action){
   let wrap = document.getElementById('toastWrap');
   if(!wrap){
     wrap = document.createElement('div');
@@ -641,9 +666,18 @@ function showToast(msg, kind){
   const t = document.createElement('div');
   t.className = 'toast' + (kind === 'warn' ? ' warn' : '');
   t.textContent = msg;
+  if(action){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toast-action';
+    btn.textContent = action.label;
+    btn.addEventListener('click', () => { t.remove(); action.onClick(); });
+    t.appendChild(btn);
+    t.style.pointerEvents = 'auto';
+  }
   wrap.appendChild(t);
   requestAnimationFrame(() => t.classList.add('show'));
-  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 4200);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, action ? 9000 : 4200);
 }
 
 /* يسجّل في الكتاب أنك وصلت للدرس/الصفحة n، كأنك عدّلته بنفسك من «الطريق» */
@@ -691,7 +725,9 @@ async function quickProgress(id){
 function renderDailyView(){
   const el = document.getElementById('dailyView');
   el.innerHTML = `
+    <div id="backupReminder"></div>
     <div id="currentBooks" class="current-books"></div>
+    <div id="dailyGoal"></div>
     <div id="monthlySummary"></div>
     <div class="entry-box">
       <div class="row2">
@@ -728,6 +764,15 @@ function renderDailyView(){
       </span>
     </div>
     <div id="timeline"></div>
+    <div class="backup-box">
+      <div class="backup-head">النسخ الاحتياطي</div>
+      <div class="hint" id="backupInfo"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="primary" onclick="exportBackup()">⬇ تصدير نسخة احتياطية</button>
+        <button class="ghost" onclick="pickBackupFile()">⬆ استيراد من نسخة</button>
+        <input type="file" id="backupFile" accept="application/json,.json" style="display:none" onchange="importBackup(this)">
+      </div>
+    </div>
     <div style="text-align:center;margin-top:10px">
       <button class="ghost" onclick="resetCreds()">تغيير قاعدة البيانات</button>
     </div>
@@ -947,6 +992,7 @@ async function renderSubjectDetail(){
 
 async function loadBooks(){
   const wrap = document.getElementById('levelsWrap');
+  if(!wrap){ await refreshBooksCache(); renderCurrentBooks(); return; }
   const error = await refreshBooksCache();
   if(error){ wrap.innerHTML = `<div class="empty">تعذّر التحميل: ${error.message}</div>`; return; }
   renderCurrentBooks();
@@ -1155,8 +1201,23 @@ async function saveBook(){
 
 async function deleteBook(id){
   if(!confirm('حذف هذا الكتاب؟')) return;
-  await sb.from('books').delete().eq('id', id);
+  const book = booksCache.find(b => b.id === id);
+  const linkedRes = await sb.from('entries').select('id').eq('book_id', id);
+  const linked = (linkedRes.data || []).map(x => x.id);
+  const {error} = await sb.from('books').delete().eq('id', id);
+  if(error){ alert('صار خطأ: ' + error.message); return; }
   await loadBooks();
+  if(book) showToast(`تم حذف «${book.name}»`, 'info', {label:'تراجع', onClick: () => restoreBook(book, linked)});
+}
+
+async function restoreBook(book, entryIds){
+  const {subjects, ...row} = book;
+  const {error} = await sb.from('books').insert(row);
+  if(error){ showToast('تعذّر التراجع: ' + error.message, 'warn'); return; }
+  if(entryIds.length) await sb.from('entries').update({book_id: book.id}).in('id', entryIds);
+  await loadBooks();
+  await loadEntries();
+  showToast('تم التراجع ✓');
 }
 
 /* ============ نظام التركيز: بومودورو، مؤقت حر، وساعة توقف ============ */
@@ -1801,13 +1862,26 @@ function cancelEditEntry(){
 }
 
 async function deleteEntry(id){
-  if(!confirm('حذف هذا القيد؟')) return;
-  await sb.from('entries').delete().eq('id', id);
+  const row = entriesById.get(id);
+  if(!row) return;
+  const {error} = await sb.from('entries').delete().eq('id', id);
+  if(error){ alert('صار خطأ: ' + error.message); return; }
   await loadEntries();
+  showToast('تم حذف القيد', 'info', {label:'تراجع', onClick: () => restoreEntries([row])});
+}
+
+async function restoreEntries(rows){
+  const {error} = await sb.from('entries').insert(rows);
+  if(error){ showToast('تعذّر التراجع: ' + error.message, 'warn'); return; }
+  await loadEntries();
+  showToast('تم التراجع ✓');
 }
 
 async function loadEntries(){
-  const {data, error} = await sb.from('entries').select('*').order('entry_date', {ascending:false}).order('created_at', {ascending:false});
+  let data = [], error = null;
+  try{
+    data = await fetchAllRows('entries', q => q.order('entry_date', {ascending:false}).order('created_at', {ascending:false}).order('id'));
+  }catch(e){ error = e; }
   const timeline = document.getElementById('timeline');
   if(!timeline) return;
   if(error){ timeline.innerHTML = `<div class="empty">تعذّر تحميل السجل: ${error.message}</div>`; return; }
@@ -1828,12 +1902,12 @@ async function deleteTagGroup(tag){
   const minutes = sessions.reduce((sum, e) => sum + (e.focus_minutes || 0), 0);
   const label = tag === 'بدون وسم' ? 'القيود بدون وسم' : `الوسم «${tag}»`;
   const details = `${group.length} قيد` + (sessions.length ? ` (منها ${sessions.length} جلسة تركيز بمجموع ${minutes} دقيقة)` : '');
-  if(!confirm(`⚠️ تحذير\n\nسيتم حذف ${label} نهائيًا مع كل قيوده: ${details}.\n\nلا يمكن التراجع عن هذا الإجراء، وسيتغير ملخص الشهر ووقت التركيز.\nتقدّم الكتب في «الطريق» لا يتأثر.\n\nهل تريد المتابعة؟`)) return;
+  if(!confirm(`⚠️ تحذير\n\nسيتم حذف ${label} نهائيًا مع كل قيوده: ${details}.\n\nسيتغير ملخص الشهر ووقت التركيز. تقدّم الكتب في «الطريق» لا يتأثر.\nبعد الحذف يظهر زر «تراجع» لبضع ثوانٍ فقط.\n\nهل تريد المتابعة؟`)) return;
   const {error} = await sb.from('entries').delete().in('id', group.map(e => e.id));
   if(error){ alert('صار خطأ: ' + error.message); return; }
   collapsedTagGroups.delete(tag);
   localStorage.setItem('rihla_collapsed_tag_groups', JSON.stringify([...collapsedTagGroups]));
-  showToast(`تم حذف ${group.length} قيد`);
+  showToast(`تم حذف ${group.length} قيد`, 'info', {label:'تراجع', onClick: () => restoreEntries(group)});
   await loadEntries();
 }
 
@@ -1965,6 +2039,9 @@ function toggleTagGroup(button){
 function renderStats(list){
   const entries = list || entriesCache || [];
   const streak = computeStreak(entries.map(e => e.entry_date));
+  renderDailyGoal(entries);
+  renderBackupReminder();
+  renderBackupInfo();
   const availableKeys = [...new Set(entries.map(e => entryMonthKey(e.entry_date)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -2010,6 +2087,305 @@ function renderStats(list){
         </div>
       </section>`;
     setMonthlySummaryVisibility();
+  }
+}
+
+/* ============ جلب كل الصفوف (Supabase يقطع النتائج عند 1000) ============ */
+
+async function fetchAllRows(table, build){
+  const out = [];
+  const size = 1000;
+  for(let from = 0; ; from += size){
+    let q = sb.from(table).select('*');
+    if(build) q = build(q);
+    const {data, error} = await q.range(from, from + size - 1);
+    if(error) throw error;
+    out.push(...(data || []));
+    if(!data || data.length < size) break;
+  }
+  return out;
+}
+
+/* ============ الهدف اليومي (بالدروس) ============ */
+
+function getDailyGoal(){
+  return parseInt(localStorage.getItem('rihla_daily_goal') || '0') || 0;
+}
+
+function setDailyGoal(){
+  const cur = getDailyGoal();
+  const input = prompt('كم درسًا تريد إنجازه يوميًا؟ (اكتب 0 لإلغاء الهدف)', String(cur || 1));
+  if(input === null) return;
+  const n = Math.max(0, Math.min(50, parseInt(normalizeDigits(input)) || 0));
+  localStorage.setItem('rihla_daily_goal', String(n));
+  renderDailyGoal();
+}
+
+function entriesByDate(entries){
+  const map = new Map();
+  (entries || []).forEach(e => {
+    if(!map.has(e.entry_date)) map.set(e.entry_date, []);
+    map.get(e.entry_date).push(e);
+  });
+  return map;
+}
+
+function lessonsOnDate(byDate, dateStr){
+  return lessonKeys(byDate.get(dateStr) || []).size;
+}
+
+function renderDailyGoal(entries){
+  const el = document.getElementById('dailyGoal');
+  if(!el) return;
+  const goal = getDailyGoal();
+  if(!goal){
+    el.innerHTML = `<div class="goal-card"><div class="goal-row"><span>🎯 هدف اليوم</span><button class="ghost" onclick="setDailyGoal()">حدّد هدفك اليومي بالدروس</button></div></div>`;
+    return;
+  }
+  const today = lessonsOnDate(entriesByDate(entries || entriesCache), toDateStr(new Date()));
+  const pct = Math.min(100, Math.round(today / goal * 100));
+  const done = today >= goal;
+  el.innerHTML = `
+    <div class="goal-card ${done ? 'goal-done' : ''}">
+      <div class="goal-row">
+        <span>🎯 هدف اليوم: <b>${today}</b> / ${goal} ${goal === 1 ? 'درس' : 'دروس'}</span>
+        <button class="ghost" onclick="setDailyGoal()">تغيير</button>
+      </div>
+      <div class="sj-progress-bar" style="margin:8px 0 0"><div class="sj-progress-fill" style="width:${pct}%"></div></div>
+      ${done ? '<div class="hint" style="color:var(--green)">أنجزت هدف اليوم، بارك الله فيك ✓</div>' : '<div class="hint">يُحسب كل درس مرة واحدة في اليوم، ولو درسته في عدة جلسات.</div>'}
+    </div>`;
+}
+
+/* ============ الإحصائيات ============ */
+
+let statsRange = 7;
+
+async function openStats(){
+  const el = document.getElementById('statsView');
+  if(el && !el.innerHTML) el.innerHTML = '<div class="empty">جاري التحميل...</div>';
+  await Promise.all([refreshBooksCache(), loadEntries()]);
+  renderStatsView();
+}
+
+function setStatsRange(n){
+  statsRange = n;
+  renderStatsView();
+}
+
+function humanWeeks(weeks){
+  if(weeks <= 8) return `${weeks} ${weeks === 1 ? 'أسبوع' : 'أسابيع'}`;
+  const months = Math.round(weeks / 4.3);
+  return `${months} ${months <= 10 ? 'أشهر' : 'شهرًا'}`;
+}
+
+function renderStatsView(){
+  const el = document.getElementById('statsView');
+  if(!el) return;
+  const byDate = entriesByDate(entriesCache);
+  const goal = getDailyGoal();
+  const days = [];
+  const now = new Date();
+  for(let i = statsRange - 1; i >= 0; i--){
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const ds = toDateStr(d);
+    days.push({ds, d, idx: statsRange - 1 - i, n: lessonsOnDate(byDate, ds)});
+  }
+  const total = days.reduce((sum, x) => sum + x.n, 0);
+  const avg = Math.round(total / statsRange * 10) / 10;
+  const best = days.reduce((a, b) => b.n > a.n ? b : a, days[0]);
+  const max = Math.max(1, ...days.map(x => x.n));
+  const dayLabel = x => statsRange === 7
+    ? x.d.toLocaleDateString('ar', {weekday:'short'})
+    : (x.idx % 5 === 0 || x.idx === statsRange - 1 ? arabicNumeral(x.d.getDate()) : '');
+
+  // سرعة كل كتاب: الدروس المختلفة في آخر 28 يومًا
+  const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 28);
+  const cutoffStr = toDateStr(cutoff);
+  const lessonsByBook = new Map();
+  entriesCache.forEach(e => {
+    if(!e.book_id || !e.lesson_number || e.entry_date < cutoffStr) return;
+    if(!lessonsByBook.has(e.book_id)) lessonsByBook.set(e.book_id, new Set());
+    lessonsByBook.get(e.book_id).add(e.lesson_number);
+  });
+
+  const current = booksCache.filter(b => b.status === 'in_progress');
+  const booksHtml = current.length ? current.map(b => {
+    const p = bookProgressPct(b);
+    const isPages = lessonUnit(b) === 'صفحة';
+    let forecast;
+    if(isPages){
+      forecast = 'كتاب بالصفحات: التوقع متاح للمتون والدروس فقط.';
+    } else if(!p.total){
+      forecast = 'حدّد عدد الدروس الكلي للكتاب ليظهر التوقع.';
+    } else if(p.done >= p.total){
+      forecast = 'أتممت دروس هذا الكتاب.';
+    } else {
+      const count = lessonsByBook.has(b.id) ? lessonsByBook.get(b.id).size : 0;
+      const perWeek = count / 4;
+      if(!count){
+        forecast = 'لا توجد دروس مسجّلة لهذا الكتاب في آخر ٤ أسابيع، فلا يمكن حساب التوقع.';
+      } else {
+        const remaining = p.total - p.done;
+        const weeks = Math.max(1, Math.ceil(remaining / perWeek));
+        const eta = new Date(now); eta.setDate(eta.getDate() + weeks * 7);
+        const rate = Math.round(perWeek * 10) / 10;
+        forecast = `بمعدلك الحالي (${rate} درس في الأسبوع) تنهيه خلال ${humanWeeks(weeks)} تقريبًا، أي حوالي ${formatDate(toDateStr(eta))}.`;
+      }
+    }
+    return `
+      <div class="book-stat">
+        <div class="cb-row"><div class="sj-name" style="margin-bottom:0">${escapeHtml(b.name)}</div><div class="cb-pct">${p.pct}%</div></div>
+        <div class="cb-sub">${p.done} / ${p.total} ${p.unit}</div>
+        <div class="sj-progress-bar" style="margin-bottom:0"><div class="sj-progress-fill" style="width:${p.pct}%"></div></div>
+        <div class="forecast">${forecast}</div>
+      </div>`;
+  }).join('') : `<div class="empty" style="padding:26px 20px">لا يوجد كتاب تدرسه الآن.</div>`;
+
+  el.innerHTML = `
+    <div class="timeline-head">
+      <h2>الدروس</h2>
+      <div class="tag-choices">
+        <button class="${statsRange === 7 ? 'active' : ''}" onclick="setStatsRange(7)">٧ أيام</button>
+        <button class="${statsRange === 30 ? 'active' : ''}" onclick="setStatsRange(30)">٣٠ يومًا</button>
+      </div>
+    </div>
+    <div class="bars">
+      ${days.map(x => `
+        <div class="bar-col" title="${formatDate(x.ds)}: ${x.n} ${x.n === 1 ? 'درس' : 'دروس'}">
+          <div class="bar-val">${x.n || ''}</div>
+          <div class="bar-wrap"><div class="bar ${goal && x.n >= goal ? 'met' : ''}" style="height:${Math.round(x.n / max * 100)}%"></div></div>
+        </div>`).join('')}
+    </div>
+    <div class="bars-lbl">${days.map(x => `<span>${dayLabel(x)}</span>`).join('')}</div>
+    ${goal ? '<div class="hint">اللون الذهبي: يوم حققت فيه هدفك (' + goal + ' ' + (goal === 1 ? 'درس' : 'دروس') + ').</div>' : ''}
+    <div class="stat-line">
+      في آخر ${statsRange === 7 ? 'سبعة أيام' : 'ثلاثين يومًا'}: <b>${total}</b> ${total === 1 ? 'درس' : 'دروس'}،
+      بمعدل <b>${avg}</b> درس في اليوم${best.n > 0 ? `، وأفضل يوم ${formatDate(best.ds)} (${best.n})` : ''}.
+    </div>
+    <div class="hint">تُحتسب دروس المتون فقط، وكل درس مرة واحدة في اليوم.</div>
+
+    <div class="timeline-head" style="margin-top:28px"><h2>الكتب الجارية والتوقع</h2></div>
+    ${booksHtml}
+  `;
+}
+
+/* ============ النسخ الاحتياطي ============ */
+
+const BACKUP_KEY = 'rihla_last_backup';
+const BACKUP_SNOOZE = 'rihla_backup_snooze';
+
+function lastBackupInfo(){
+  const last = parseInt(localStorage.getItem(BACKUP_KEY) || '0') || 0;
+  return {last, days: last ? Math.floor((Date.now() - last) / 86400000) : null};
+}
+
+function renderBackupInfo(){
+  const el = document.getElementById('backupInfo');
+  if(!el) return;
+  const {last, days} = lastBackupInfo();
+  el.textContent = last
+    ? `آخر تصدير من هذا الجهاز: ${days === 0 ? 'اليوم' : 'قبل ' + days + ' يومًا'}. الملف صورة ثابتة من بياناتك لحظة التصدير.`
+    : 'لم تصدّر نسخة من هذا الجهاز بعد. الملف صورة ثابتة من بياناتك لحظة التصدير.';
+}
+
+function renderBackupReminder(){
+  const el = document.getElementById('backupReminder');
+  if(!el) return;
+  const {last, days} = lastBackupInfo();
+  const snooze = parseInt(localStorage.getItem(BACKUP_SNOOZE) || '0') || 0;
+  const due = last ? days >= 30 : entriesCache.length >= 5;
+  if(!due || Date.now() < snooze){ el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="monthly-summary" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <span>🗂 ${last ? `آخر نسخة احتياطية قبل ${days} يومًا.` : 'لم تصدّر نسخة احتياطية من بياناتك بعد.'}</span>
+      <span style="display:flex;gap:8px">
+        <button class="primary" onclick="exportBackup()">صدّر الآن</button>
+        <button class="ghost" onclick="snoozeBackup()">ذكّرني لاحقًا</button>
+      </span>
+    </div>`;
+}
+
+function snoozeBackup(){
+  localStorage.setItem(BACKUP_SNOOZE, String(Date.now() + 7 * 86400000));
+  renderBackupReminder();
+}
+
+async function exportBackup(){
+  try{
+    showToast('جاري تجهيز النسخة...');
+    const [subjects, books, entries] = await Promise.all([
+      fetchAllRows('subjects', q => q.order('id')),
+      fetchAllRows('books', q => q.order('id')),
+      fetchAllRows('entries', q => q.order('id'))
+    ]);
+    const payload = {app:'rihla', version:1, exported_at:new Date().toISOString(), subjects, books, entries};
+    const blob = new Blob([JSON.stringify(payload, null, 1)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rihla-backup-${toDateStr(new Date())}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    localStorage.setItem(BACKUP_KEY, String(Date.now()));
+    localStorage.removeItem(BACKUP_SNOOZE);
+    renderBackupReminder();
+    renderBackupInfo();
+    showToast(`تم تصدير ${entries.length} قيد و${books.length} كتاب ✓`);
+  }catch(e){
+    showToast('تعذّر التصدير: ' + (e.message || e), 'warn');
+  }
+}
+
+function pickBackupFile(){
+  document.getElementById('backupFile').click();
+}
+
+async function upsertChunks(table, rows){
+  for(let i = 0; i < rows.length; i += 200){
+    const {error} = await sb.from(table).upsert(rows.slice(i, i + 200), {onConflict:'id'});
+    if(error) throw error;
+  }
+}
+
+async function importBackup(input){
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  let data;
+  try{ data = JSON.parse(await file.text()); }
+  catch(e){ alert('الملف غير صالح.'); return; }
+  if(!data || data.app !== 'rihla' || !Array.isArray(data.entries) || !Array.isArray(data.books) || !Array.isArray(data.subjects)){
+    alert('هذا ليس ملف نسخة احتياطية من «الرحلة العلمية».');
+    return;
+  }
+  if(!confirm(`سيتم دمج النسخة مع بياناتك الحالية:\n• ${data.subjects.length} علم\n• ${data.books.length} كتاب\n• ${data.entries.length} قيد\n\nما كان له نفس المعرّف سيُستبدل بما في الملف، ولن يُحذف أي شيء آخر.\n\nمتابعة؟`)) return;
+  try{
+    showToast('جاري الاستيراد، لا تغلق الصفحة...');
+    const strip = ({user_id, ...rest}) => rest;
+    const {data: current} = await sb.from('subjects').select('id,name');
+    const byName = new Map((current || []).map(x => [x.name, x.id]));
+    const curIds = new Set((current || []).map(x => x.id));
+    const idMap = new Map();
+    const subjectRows = [];
+    data.subjects.forEach(x => {
+      if(!curIds.has(x.id) && byName.has(x.name)){
+        idMap.set(x.id, byName.get(x.name));   // علم موجود بنفس الاسم: ندمج الكتب فيه
+      } else {
+        idMap.set(x.id, x.id);
+        subjectRows.push(strip(x));
+      }
+    });
+    await upsertChunks('subjects', subjectRows);
+    await upsertChunks('books', data.books.map(b => ({...strip(b), subject_id: idMap.get(b.subject_id) || b.subject_id})));
+    await upsertChunks('entries', data.entries.map(strip));
+    await syncBooksUi();
+    await loadEntries();
+    showToast(`تم استيراد ${data.entries.length} قيد و${data.books.length} كتاب ✓`);
+  }catch(e){
+    showToast('تعذّر الاستيراد: ' + (e.message || e), 'warn');
   }
 }
 
