@@ -691,37 +691,28 @@ function renderDailyView(){
     <div id="currentBooks" class="current-books"></div>
     <div id="monthlySummary"></div>
     <div class="entry-box">
-      <div class="field">
-        <label>ماذا سجّلت اليوم؟</label>
-        <textarea id="contentInput" placeholder="مثال: حفظت من باب الطهارة إلى باب الحيض من متن أبي شجاع..."></textarea>
-      </div>
-      <div class="field">
-        <label>الوسوم (اختياري، افصل بينها بفاصلة)</label>
-        <input id="tagsInput" placeholder="مثل: فائدة، مراجعة، نحو">
-        <div style="font-size:.72rem;color:var(--ink-soft);margin-top:5px">يظهر القيد تحت الوسم الأول في سجل الأيام، مع بقاء بقية الوسوم ظاهرة داخله.</div>
-      </div>
-      <div class="field">
-        <label>الكتاب من «الطريق» (اختياري — يُحدَّث إنجازك فيه تلقائيًا)</label>
-        <select id="entryBook" onchange="onEntryBookChange()">${bookOptionsHtml('')}</select>
-      </div>
-      <div class="field" id="entryLessonWrap" style="display:none">
-        <label id="entryLessonLabel">رقم الدرس الذي وصلت له</label>
-        <input id="entryLesson" type="text" inputmode="numeric">
-        <div class="hint" id="entryLessonHint"></div>
-      </div>
-      <div class="field" id="entryFreeLessonWrap">
-        <label>أو اسم درس حر بدون كتاب (يُحسب مرة واحدة ولو تكرر في عدة جلسات)</label>
-        <input id="lessonNameInput" placeholder="مثل: الآجرومية — الدرس 12">
-      </div>
       <div class="row2">
+        <div class="field">
+          <label>الكتاب</label>
+          <select id="entryBook" onchange="onEntryBookChange()">${bookOptionsHtml('')}</select>
+        </div>
+        <div class="field">
+          <label id="entryLessonLabel">رقم الدرس</label>
+          <input id="entryLesson" type="text" inputmode="numeric" disabled placeholder="اختر كتابًا أولاً">
+        </div>
+      </div>
+      <div class="hint" id="entryLessonHint" style="margin:-6px 0 14px"></div>
+      <div class="row2">
+        <div class="field">
+          <label>الوقت (بالدقائق)</label>
+          <input id="entryMinutes" type="text" inputmode="numeric" placeholder="مثل: 45">
+        </div>
         <div class="field">
           <label>التاريخ</label>
           <input type="date" id="dateInput">
         </div>
-        <div class="field" style="display:flex;align-items:flex-end;">
-          <button class="primary" id="saveEntryButton" onclick="addEntry()" style="width:100%">حفظ في السجل</button>
-        </div>
       </div>
+      <button class="primary" id="saveEntryButton" onclick="addEntry()" style="width:100%">حفظ جلسة التركيز</button>
       <div id="cancelEditWrap" style="display:none;text-align:left;margin-top:-5px">
         <button class="ghost" onclick="cancelEditEntry()">إلغاء التعديل</button>
       </div>
@@ -749,16 +740,20 @@ function onEntryBookChange(){
   const sel = document.getElementById('entryBook');
   if(!sel) return;
   const b = booksCache.find(x => x.id === sel.value);
-  const wrap = document.getElementById('entryLessonWrap');
-  const free = document.getElementById('entryFreeLessonWrap');
-  if(free) free.style.display = b ? 'none' : '';
-  if(!b){ wrap.style.display = 'none'; return; }
-  wrap.style.display = '';
+  const input = document.getElementById('entryLesson');
+  const hint = document.getElementById('entryLessonHint');
+  input.disabled = !b;
+  if(!b){
+    input.placeholder = 'اختر كتابًا أولاً';
+    document.getElementById('entryLessonLabel').textContent = 'رقم الدرس';
+    hint.textContent = '';
+    return;
+  }
   const unit = lessonUnit(b);
   const done = bookProgressPct(b).done;
-  document.getElementById('entryLessonLabel').textContent = unit === 'صفحة' ? 'رقم الصفحة التي وصلت لها' : 'رقم الدرس الذي درسته';
-  document.getElementById('entryLesson').placeholder = 'مثل: ' + (done + 1);
-  document.getElementById('entryLessonHint').textContent = `وصلتَ حاليًا إلى ${unit} ${done}. اترك الخانة فارغة إذا لا تريد تحديث الإنجاز.`;
+  document.getElementById('entryLessonLabel').textContent = unit === 'صفحة' ? 'رقم الصفحة' : 'رقم الدرس';
+  input.placeholder = 'مثل: ' + (done + 1);
+  hint.textContent = `وصلتَ حاليًا إلى ${unit} ${done}.`;
 }
 
 const STATUS_LABELS = {todo:'لسا ما بدأت', in_progress:'أدرسه الحين', complete:'خلصته'};
@@ -1735,7 +1730,7 @@ function stopAlarm(){
 async function saveEntryRow(payload, id){
   const run = p => id
     ? sb.from('entries').update(p).eq('id', id)
-    : sb.from('entries').insert({ ...p, type: 'entry' });
+    : sb.from('entries').insert(p);
   let res = await run(payload);
   if(res.error && /book_id|lesson_number/.test(res.error.message || '')){
     const {book_id, lesson_number, ...rest} = payload;
@@ -1746,33 +1741,28 @@ async function saveEntryRow(payload, id){
 }
 
 async function addEntry(){
-  const content = document.getElementById('contentInput').value.trim();
   const date = document.getElementById('dateInput').value || toDateStr(new Date());
-  let tags = document.getElementById('tagsInput').value.trim();
   const book = booksCache.find(b => b.id === document.getElementById('entryBook').value) || null;
-  const lessonNo = book ? (parseInt(normalizeDigits(document.getElementById('entryLesson').value)) || 0) : 0;
-  let lessonName = book ? '' : document.getElementById('lessonNameInput').value.trim();
-  if(book && lessonNo && lessonUnit(book) === 'درس') lessonName = `${book.name} — الدرس ${lessonNo}`;
-  if(!content){ alert('اكتب ما تريد تسجيله أولاً'); return; }
-  if(splitTags(tags).some(tag=>tag === 'درس') && !lessonName && !(book && lessonNo)){
-    alert('حتى يُحسب الدرس بدقة، اختر الكتاب واكتب رقم الدرس، أو اكتب اسمه في خانة «اسم درس حر».');
-    return;
-  }
-  // الاسم هو مفتاح الدرس؛ لذلك لا تحتسب الجلسات المتكررة للدرس نفسه أكثر من مرة.
-  if(lessonName){
-    const lessonTag = `درس: ${lessonName}`;
-    const existingTags = splitTags(tags);
-    if(!existingTags.includes(lessonTag)) existingTags.push(lessonTag);
-    tags = existingTags.join(', ');
-  }
+  const lessonNo = parseInt(normalizeDigits(document.getElementById('entryLesson').value)) || 0;
+  if(!book){ alert('اختر الكتاب أولاً'); return; }
+  if(!lessonNo){ alert('اكتب رقم ' + lessonUnit(book)); return; }
+  const minutes = parseInt(normalizeDigits(document.getElementById('entryMinutes').value)) || 0;
+  if(minutes <= 0){ alert('اكتب الوقت بالدقائق'); return; }
+  const unit = lessonUnit(book);
+  const tags = [book.name];
+  if(unit === 'درس') tags.push(`درس: ${book.name} — الدرس ${lessonNo}`);
   const payload = {
-    entry_date: date, content, tags,
-    book_id: book ? book.id : null,
-    lesson_number: lessonNo || null
+    entry_date: date,
+    type: 'tarkiz',
+    content: `جلسة تركيز: ${book.name} — ${unit} ${lessonNo} — ${minutes} دقيقة`,
+    tags: tags.join(', '),
+    focus_minutes: minutes,
+    book_id: book.id,
+    lesson_number: lessonNo
   };
   const {error} = await saveEntryRow(payload, editingEntryId);
   if(error){ alert('صار خطأ: '+error.message); return; }
-  if(book && lessonNo) await recordProgress(book, lessonNo);
+  await recordProgress(book, lessonNo);
   cancelEditEntry();
   await loadEntries();
 }
@@ -1781,19 +1771,13 @@ function startEditEntry(id){
   const entry = entriesById.get(id);
   if(!entry) return;
   editingEntryId = id;
-  const book = entry.book_id ? booksCache.find(b => b.id === entry.book_id) : null;
-  const lessonTag = splitTags(entry.tags).find(tag => /^درس\s*:\s*(.+)$/i.test(tag));
-  const lessonMatch = lessonTag && lessonTag.match(/^درس\s*:\s*(.+)$/i);
-  document.getElementById('contentInput').value = entry.content || '';
-  document.getElementById('dateInput').value = entry.entry_date || '';
-  // وسم الدرس يُعاد توليده عند الحفظ، فلا نعرضه في خانة الوسوم
-  document.getElementById('tagsInput').value = splitTags(entry.tags).filter(tag => tag !== lessonTag).join(', ');
   const sel = document.getElementById('entryBook');
-  sel.innerHTML = bookOptionsHtml(book ? book.id : '');
-  sel.value = book ? book.id : '';
-  document.getElementById('entryLesson').value = book && entry.lesson_number ? entry.lesson_number : '';
-  document.getElementById('lessonNameInput').value = (!book && lessonMatch) ? lessonMatch[1] : '';
+  sel.innerHTML = bookOptionsHtml(entry.book_id || '');
+  sel.value = entry.book_id || '';
+  document.getElementById('dateInput').value = entry.entry_date || '';
   onEntryBookChange();
+  document.getElementById('entryLesson').value = entry.lesson_number || '';
+  document.getElementById('entryMinutes').value = entry.focus_minutes || '';
   document.getElementById('saveEntryButton').textContent = 'حفظ التعديلات';
   document.getElementById('cancelEditWrap').style.display = '';
   document.querySelector('.entry-box').scrollIntoView({behavior:'smooth', block:'start'});
@@ -1801,17 +1785,15 @@ function startEditEntry(id){
 
 function cancelEditEntry(){
   editingEntryId = null;
-  const content = document.getElementById('contentInput');
-  if(!content) return;
-  content.value = '';
-  document.getElementById('tagsInput').value = '';
-  document.getElementById('lessonNameInput').value = '';
-  document.getElementById('entryLesson').value = '';
   const sel = document.getElementById('entryBook');
+  if(!sel) return;
+  sel.innerHTML = bookOptionsHtml('');
   sel.value = '';
+  document.getElementById('entryLesson').value = '';
+  document.getElementById('entryMinutes').value = '';
   onEntryBookChange();
   document.getElementById('dateInput').valueAsDate = new Date();
-  document.getElementById('saveEntryButton').textContent = 'حفظ في السجل';
+  document.getElementById('saveEntryButton').textContent = 'حفظ جلسة التركيز';
   document.getElementById('cancelEditWrap').style.display = 'none';
 }
 
@@ -1865,7 +1847,7 @@ function renderTimeline(){
   const renderEntry = e => `
     <div class="day-entry">
       <button class="ghost del" onclick="deleteEntry('${e.id}')">حذف</button>
-      <button class="ghost edit" onclick="startEditEntry('${e.id}')">تعديل</button>
+      ${e.book_id ? `<button class="ghost edit" onclick="startEditEntry('${e.id}')">تعديل</button>` : ''}
       <div class="date">${formatDate(e.entry_date)} <span class="tag">${tagLabel(e.type)}</span></div>
       <p>${escapeHtml(e.content)}</p>
       ${e.tags ? `<div class="tags-row">${splitTags(e.tags).map(t=>`<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
