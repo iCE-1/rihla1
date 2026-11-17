@@ -262,6 +262,8 @@
   .toast.warn{background:var(--red);}
   button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
   @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
+  .focus-target{text-align:center;font-size:.9rem;color:var(--gold);min-height:1.3em;margin:-8px 0 16px;font-weight:500;}
+  .field input:disabled{opacity:.55;cursor:not-allowed;}
 </style>
 </head>
 <body>
@@ -415,9 +417,58 @@ async function init(){
   if(!url || !key){ renderSetup(); return; }
   sb = window.supabase.createClient(url, key);
 
+  // رابط استعادة كلمة السر من البريد: يفتح شاشة تعيين كلمة جديدة
+  const hashIsRecovery = /type=recovery/.test(location.hash);
+  sb.auth.onAuthStateChange((event) => {
+    if(event === 'PASSWORD_RECOVERY') renderPasswordScreen('recovery');
+  });
+
   const { data: { session } } = await sb.auth.getSession();
+  if(hashIsRecovery && session){ renderPasswordScreen('recovery'); return; }
   if(!session){ renderAuth(); return; }
   await renderApp();
+}
+
+function resetRedirectUrl(){
+  return location.origin + location.pathname;
+}
+
+async function sendResetEmail(){
+  const email = document.getElementById('authEmail').value.trim();
+  const msg = document.getElementById('authMsg');
+  if(!email){ msg.style.color = 'var(--red)'; msg.textContent = 'اكتب بريدك في الخانة أعلاه أولاً'; return; }
+  const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo: resetRedirectUrl()});
+  if(error){ msg.style.color = 'var(--red)'; msg.textContent = error.message; return; }
+  msg.style.color = 'var(--green)';
+  msg.textContent = 'إذا كان البريد مسجّلًا فقد أُرسل إليه رابط تعيين كلمة سر جديدة. تحقق من الوارد والبريد المزعج.';
+}
+
+function renderPasswordScreen(mode){
+  const app = document.getElementById('app');
+  const isRecovery = mode === 'recovery';
+  app.innerHTML = `
+  <div class="setup-screen">
+    <h1>${isRecovery ? 'تعيين كلمة سر جديدة' : 'تغيير كلمة السر'}</h1>
+    <p style="color:var(--ink-soft);font-size:.88rem">${isRecovery ? 'اكتب كلمة السر الجديدة لحسابك.' : 'اختر كلمة سر جديدة لحسابك الحالي.'}</p>
+    <input id="newPass" type="password" placeholder="كلمة السر الجديدة (6 أحرف على الأقل)" autocomplete="new-password">
+    <input id="newPass2" type="password" placeholder="أعد كتابة كلمة السر" autocomplete="new-password">
+    <div id="passMsg" style="color:var(--red);font-size:.8rem;margin-bottom:8px"></div>
+    <button class="primary" onclick="saveNewPassword('${mode}')" style="width:100%;margin-bottom:8px">حفظ كلمة السر</button>
+    ${isRecovery ? '' : `<button class="ghost" onclick="renderApp()" style="width:100%">إلغاء</button>`}
+  </div>`;
+}
+
+async function saveNewPassword(mode){
+  const p1 = document.getElementById('newPass').value;
+  const p2 = document.getElementById('newPass2').value;
+  const msg = document.getElementById('passMsg');
+  if(p1.length < 6){ msg.textContent = 'كلمة السر لا تقل عن 6 أحرف'; return; }
+  if(p1 !== p2){ msg.textContent = 'كلمتا السر غير متطابقتين'; return; }
+  const {error} = await sb.auth.updateUser({password: p1});
+  if(error){ msg.textContent = error.message; return; }
+  history.replaceState(null, '', location.pathname);
+  await renderApp();
+  showToast('تم تغيير كلمة السر ✓');
 }
 
 function renderAuth(){
@@ -430,7 +481,8 @@ function renderAuth(){
     <input id="authPass" type="password" placeholder="كلمة السر (6 أحرف على الأقل)">
     <div id="authMsg" style="color:var(--red);font-size:.8rem;margin-bottom:8px"></div>
     <button class="primary" onclick="signIn()" style="width:100%;margin-bottom:8px">دخول</button>
-    <button class="ghost" onclick="signUp()" style="width:100%">إنشاء حساب جديد</button>
+    <button class="ghost" onclick="signUp()" style="width:100%;margin-bottom:8px">إنشاء حساب جديد</button>
+    <button class="ghost" onclick="sendResetEmail()" style="width:100%;border-style:dashed">نسيت كلمة السر؟</button>
     <p style="margin-top:16px"><button class="ghost" onclick="resetCreds()">تغيير قاعدة البيانات</button></p>
   </div>`;
 }
@@ -473,6 +525,7 @@ async function renderApp(){
       <span style="display:flex;align-items:center;gap:8px">
         <button class="ghost" id="themeToggle" onclick="toggleTheme()">🌙</button>
         <span id="status-pill">متصل</span>
+        <button class="ghost" onclick="renderPasswordScreen('change')" title="تغيير كلمة السر">🔑</button>
         <button class="ghost" onclick="signOut()">خروج</button>
       </span>
     </header>
@@ -1128,6 +1181,7 @@ let stopwatchElapsedMs = 0;
 const BASE_TITLE = document.title;
 let focusBookId = localStorage.getItem('rihla_focus_book') || '';
 let focusLessonNo = '';
+let focusTagVal = '';
 let pmCfg = {work:25, short:5, long:15, rounds:4, free:20};
 try { Object.assign(pmCfg, JSON.parse(localStorage.getItem('rihla_pm') || '{}')); } catch(e) {}
 
@@ -1148,18 +1202,20 @@ function focusLinkHtml(){
   const done = b ? bookProgressPct(b).done : 0;
   return `
     <div class="field">
-      <label>الكتاب الذي تدرسه (اختياري — يُحدَّث إنجازك في «الطريق» تلقائيًا)</label>
+      <label>الكتاب (اختياري — يُحدَّث إنجازك في «الطريق» تلقائيًا)</label>
       <select id="focusBook" onchange="onFocusBookChange(this.value)">${bookOptionsHtml(focusBookId)}</select>
     </div>
-    <div class="field" id="focusLessonWrap" style="${b ? '' : 'display:none'}">
-      <label id="focusLessonLabel">${unit === 'صفحة' ? 'رقم الصفحة التي ستصل لها' : 'رقم الدرس الذي تدرسه'}</label>
-      <input id="focusLesson" type="text" inputmode="numeric" value="${attrEscape(focusLessonNo)}" placeholder="مثل: ${done + 1}" oninput="focusLessonNo=this.value">
-      <div class="hint" id="focusLessonHint">${b ? `وصلتَ حاليًا إلى ${unit} ${done}. يُسجَّل الإنجاز عند انتهاء الجلسة.` : ''}</div>
+    <div class="row2">
+      <div class="field">
+        <label>الوسم أو الملاحظة (اختياري)</label>
+        <input id="focusTag" value="${attrEscape(focusTagVal)}" placeholder="مثل: مراجعة، حفظ" oninput="focusTagVal=this.value;updateFocusTarget()">
+      </div>
+      <div class="field">
+        <label id="focusLessonLabel">${unit === 'صفحة' ? 'رقم الصفحة' : 'رقم الدرس'}</label>
+        <input id="focusLesson" type="text" inputmode="numeric" value="${attrEscape(focusLessonNo)}" ${b ? '' : 'disabled'} placeholder="${b ? 'مثل: ' + (done + 1) : 'اختر كتابًا أولاً'}" oninput="focusLessonNo=this.value;updateFocusTarget()">
+      </div>
     </div>
-    <div class="field">
-      <label>وسم أو ملاحظة (اختياري، يُسجَّل بالسجل اليومي)</label>
-      <input id="focusTag" placeholder="مثل: مراجعة، حفظ">
-    </div>`;
+    <div class="hint" id="focusLessonHint" style="margin:-6px 0 14px">${b ? `وصلتَ حاليًا إلى ${unit} ${done}. يُسجَّل الإنجاز عند انتهاء الجلسة.` : ''}</div>`;
 }
 
 function onFocusBookChange(id){
@@ -1169,19 +1225,37 @@ function onFocusBookChange(id){
   updateFocusLinkUi();
 }
 
-function updateFocusLinkUi(){
-  const wrap = document.getElementById('focusLessonWrap');
-  if(!wrap) return;
+function updateFocusTarget(){
+  const el = document.getElementById('focusTarget');
+  if(!el) return;
   const b = booksCache.find(x => x.id === focusBookId);
-  wrap.style.display = b ? '' : 'none';
+  const n = parseInt(normalizeDigits(focusLessonNo)) || 0;
+  const tag = focusTagVal.trim();
+  const parts = [];
+  if(b) parts.push(`📖 ${b.name}${n ? ' — ' + lessonUnit(b) + ' ' + n : ''}`);
+  if(tag) parts.push('#' + tag);
+  el.textContent = parts.join('  ·  ');
+}
+
+function updateFocusLinkUi(){
   const input = document.getElementById('focusLesson');
+  if(!input) return;
+  const b = booksCache.find(x => x.id === focusBookId);
   input.value = focusLessonNo;
-  if(!b) return;
-  const unit = lessonUnit(b);
-  const done = bookProgressPct(b).done;
-  document.getElementById('focusLessonLabel').textContent = unit === 'صفحة' ? 'رقم الصفحة التي ستصل لها' : 'رقم الدرس الذي تدرسه';
-  input.placeholder = 'مثل: ' + (done + 1);
-  document.getElementById('focusLessonHint').textContent = `وصلتَ حاليًا إلى ${unit} ${done}. يُسجَّل الإنجاز عند انتهاء الجلسة.`;
+  input.disabled = !b;
+  const hint = document.getElementById('focusLessonHint');
+  if(!b){
+    input.placeholder = 'اختر كتابًا أولاً';
+    document.getElementById('focusLessonLabel').textContent = 'رقم الدرس';
+    hint.textContent = '';
+  } else {
+    const unit = lessonUnit(b);
+    const done = bookProgressPct(b).done;
+    document.getElementById('focusLessonLabel').textContent = unit === 'صفحة' ? 'رقم الصفحة' : 'رقم الدرس';
+    input.placeholder = 'مثل: ' + (done + 1);
+    hint.textContent = `وصلتَ حاليًا إلى ${unit} ${done}. يُسجَّل الإنجاز عند انتهاء الجلسة.`;
+  }
+  updateFocusTarget();
 }
 
 function collectFocusLink(){
@@ -1247,7 +1321,7 @@ function renderFocusPanel(){
       </div>
       <div class="focus-phase-label" id="phaseLabel">${POMODORO_PHASE_LABELS[pomodoroPhase]} — الجولة ${pomodoroRound}</div>
       <div class="focus-display" id="timerDisplay">--:--</div>
-      ${focusLinkHtml()}
+      <div class="focus-target" id="focusTarget"></div>
       <label class="focus-check"><input type="checkbox" id="autoLog" checked> أضف الجلسة تلقائيًا للسجل اليومي عند الانتهاء</label>
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
@@ -1259,7 +1333,7 @@ function renderFocusPanel(){
         <input id="freeMinutes" type="text" inputmode="numeric" value="${pmCfg.free}" onchange="savePmCfg()" ${dis}>
       </div>
       <div class="focus-display" id="timerDisplay">--:--</div>
-      ${focusLinkHtml()}
+      <div class="focus-target" id="focusTarget"></div>
       <label class="focus-check"><input type="checkbox" id="autoLog" checked> أضف الجلسة تلقائيًا للسجل اليومي عند الانتهاء</label>
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
@@ -1268,13 +1342,15 @@ function renderFocusPanel(){
     panel.innerHTML = `
       <div class="focus-phase-label">تبدأ من صفر وتستمر لين توقفها بنفسك</div>
       <div class="focus-display" id="timerDisplay">00:00</div>
-      ${focusLinkHtml()}
+      <div class="focus-target" id="focusTarget"></div>
       <label class="focus-check"><input type="checkbox" id="autoLog" checked> سجّل الجلسة تلقائيًا بالسجل اليومي عند الإنهاء</label>
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
     `;
   }
+  panel.insertAdjacentHTML('afterbegin', focusLinkHtml());
   renderFocusControls();
+  updateFocusTarget();
   if(timerMode === 'stopwatch'){
     updateStopwatchDisplay(stopwatchElapsedMs);
   } else {
