@@ -289,6 +289,25 @@
 
   .backup-box{background:var(--paper-dark);border:1px solid var(--rule);padding:14px 16px;margin:26px 0 10px;}
   .backup-head{font-family:'Aref Ruqaa',serif;font-size:1.1rem;color:var(--green-deep);}
+  .calendar-card,.profile-card,.achievement-card{background:var(--paper-dark);border:1px solid var(--rule);padding:16px;margin-bottom:18px;}
+  .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;direction:rtl;}
+  .calendar-weekday,.calendar-day{text-align:center;font-size:.72rem;}
+  .calendar-weekday{color:var(--ink-soft);padding-bottom:4px;}
+  .calendar-day{min-height:42px;padding:5px 2px;border:1px solid transparent;border-radius:4px;color:var(--ink-soft);}
+  .calendar-day.studied{background:var(--green);color:var(--paper);font-weight:700;cursor:default;}
+  .calendar-day.today{border-color:var(--gold);}
+  .calendar-day.empty-day{visibility:hidden;}
+  .profile-head{display:flex;align-items:center;gap:14px;margin-bottom:18px;}
+  .avatar{width:72px;height:72px;border-radius:50%;object-fit:cover;background:var(--green-deep);color:var(--paper);display:grid;place-items:center;font-family:'Aref Ruqaa',serif;font-size:1.8rem;border:2px solid var(--gold);}
+  .profile-name{font-family:'Aref Ruqaa',serif;font-size:1.45rem;color:var(--green-deep);}
+  .profile-handle{font-size:.8rem;color:var(--ink-soft);direction:ltr;text-align:right;}
+  .profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0;}
+  .profile-stat{padding:10px 6px;background:var(--paper);text-align:center;font-size:.75rem;color:var(--ink-soft);}
+  .profile-stat b{display:block;font-family:'Aref Ruqaa',serif;font-size:1.25rem;color:var(--green-deep);}
+  .achievements-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;}
+  .achievement{padding:12px;background:var(--paper);border-right:3px solid var(--rule);font-size:.82rem;}
+  .achievement.unlocked{border-right-color:var(--gold);}
+  .achievement small{display:block;color:var(--ink-soft);margin-top:4px;}
 </style>
 </head>
 <body>
@@ -560,22 +579,25 @@ async function renderApp(){
       <button class="tab-btn" id="tabPath" onclick="switchTab('path')">الطريق</button>
       <button class="tab-btn" id="tabFocus" onclick="switchTab('focus')">التركيز</button>
       <button class="tab-btn" id="tabStats" onclick="switchTab('stats')">الإحصائيات</button>
+      <button class="tab-btn" id="tabProfile" onclick="switchTab('profile')">الحساب</button>
     </div>
 
     <div id="dailyView"></div>
     <div id="pathView" style="display:none"></div>
     <div id="focusView" style="display:none"></div>
     <div id="statsView" style="display:none"></div>
+    <div id="profileView" style="display:none"></div>
   `;
 
   applyTheme();
   renderDailyView();
   renderFocusView();
+  renderProfileView();
 }
 
 function switchTab(tab){
   if(tab==='path') currentSubjectId = null;
-  const tabs = {daily:['tabDaily','dailyView'], path:['tabPath','pathView'], focus:['tabFocus','focusView'], stats:['tabStats','statsView']};
+  const tabs = {daily:['tabDaily','dailyView'], path:['tabPath','pathView'], focus:['tabFocus','focusView'], stats:['tabStats','statsView'], profile:['tabProfile','profileView']};
   Object.entries(tabs).forEach(([k,[btn,view]])=>{
     document.getElementById(btn).classList.toggle('active', k===tab);
     document.getElementById(view).style.display = k===tab ? '' : 'none';
@@ -584,6 +606,7 @@ function switchTab(tab){
   if(tab==='daily'){ loadEntries(); syncBooksUi(); }
   if(tab==='focus') syncBooksUi();
   if(tab==='stats') openStats();
+  if(tab==='profile') openProfile();
 }
 
 /* ============ الكتب: ذاكرة مؤقتة + ربط بالسجل والتركيز ============ */
@@ -2173,6 +2196,103 @@ function renderDailyGoal(entries){
 }
 
 /* ============ الإحصائيات ============ */
+
+/* ============ الحساب، التقويم، والإنجازات ============ */
+
+let profileCache = null;
+let accountCreatedAt = null;
+
+function initials(name){
+  return (name || 'ط').trim().split(/\s+/).slice(0,2).map(x => x[0]).join('') || 'ط';
+}
+
+function focusHoursLabel(minutes){
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  return h ? `${h} س${m ? ' ' + m + ' د' : ''}` : `${m} د`;
+}
+
+function renderCalendar(entries){
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const firstWeekday = new Date(y, m, 1).getDay();
+  const studied = new Set((entries || []).filter(e => e.entry_date && e.entry_date.slice(0,7) === `${y}-${String(m+1).padStart(2,'0')}`).map(e => Number(e.entry_date.slice(8,10))));
+  const labels = ['أحد','اثن','ثلا','أرب','خمي','جمع','سبت'];
+  const cells = [];
+  for(let i=0; i<firstWeekday; i++) cells.push('<div class="calendar-day empty-day"></div>');
+  for(let day=1; day<=daysInMonth; day++){
+    const active = studied.has(day);
+    const today = day === now.getDate();
+    cells.push(`<div class="calendar-day${active ? ' studied' : ''}${today ? ' today' : ''}" title="${active ? 'تمت الدراسة في هذا اليوم' : ''}">${arabicNumeral(day)}</div>`);
+  }
+  return `<div class="calendar-card"><div class="timeline-head"><h2>تقويم الدراسة — ${now.toLocaleDateString('ar-SA',{month:'long',year:'numeric'})}</h2></div><div class="calendar-grid">${labels.map(x=>`<div class="calendar-weekday">${x}</div>`).join('')}${cells.join('')}</div><div class="hint" style="margin-top:10px">الأخضر: يوم سجّلت فيه دراسة أو جلسة تركيز.</div></div>`;
+}
+
+function renderAchievements(entries, books){
+  const focusMinutes = (entries || []).filter(e => e.type === 'tarkiz').reduce((s,e) => s + (Number(e.focus_minutes) || 0), 0);
+  const sessions = (entries || []).filter(e => e.type === 'tarkiz').length;
+  const completed = (books || []).filter(b => b.status === 'complete').length;
+  const streak = computeStreak((entries || []).map(e => e.entry_date));
+  const items = [
+    {ok:sessions >= 1, icon:'⏱', title:'البداية المباركة', text:'سجّلت أول جلسة تركيز'},
+    {ok:focusMinutes >= 600, icon:'⌛', title:'عشر ساعات تركيز', text:`أنجزت ${focusHoursLabel(focusMinutes)} من التركيز`},
+    {ok:completed >= 1, icon:'📚', title:'ختم كتاب', text:'أكملت كتابًا واحدًا على الأقل'},
+    {ok:streak >= 7, icon:'🔥', title:'أسبوع متصل', text:`أطول سلسلة حالية: ${streak} أيام`}
+  ];
+  return `<div class="achievement-card"><div class="timeline-head"><h2>سجل الإنجازات</h2></div><div class="achievements-grid">${items.map(x=>`<div class="achievement${x.ok?' unlocked':''}"><b>${x.icon} ${x.title}</b><small>${x.ok ? 'تم الإنجاز ✓ — ' : 'قيد الإنجاز — '}${x.text}</small></div>`).join('')}</div></div>`;
+}
+
+function studiedBooks(entries){
+  const ids = new Set((entries || []).filter(e => e.book_id).map(e => e.book_id));
+  return booksCache.filter(b => ids.has(b.id));
+}
+
+async function openProfile(){
+  await Promise.all([refreshBooksCache(), loadEntries()]);
+  const {data:{session}} = await sb.auth.getSession();
+  accountCreatedAt = session?.user?.created_at || null;
+  const {data, error} = await sb.from('profiles').select('display_name, handle, avatar_url, created_at').maybeSingle();
+  if(!error) profileCache = data;
+  renderProfileView();
+}
+
+async function saveProfile(){
+  const display_name = document.getElementById('profileName').value.trim();
+  const handle = document.getElementById('profileHandle').value.trim().toLowerCase().replace(/^@/, '');
+  const avatar_url = document.getElementById('profileAvatar').value.trim();
+  if(!display_name){ alert('اكتب اسمك أولًا'); return; }
+  if(!/^[a-z0-9_]{3,24}$/.test(handle)){ alert('المعرّف من 3 إلى 24 حرفًا إنجليزيًا أو رقمًا أو شرطة سفلية فقط.'); return; }
+  if(avatar_url && !/^https:\/\//i.test(avatar_url)){ alert('ضع رابط صورة يبدأ بـ https:// أو اتركه فارغًا.'); return; }
+  const {data:{session}} = await sb.auth.getSession();
+  const {data, error} = await sb.from('profiles').upsert({user_id:session.user.id, display_name, handle, avatar_url:avatar_url || null}, {onConflict:'user_id'}).select().single();
+  if(error){ showToast(error.code === '23505' ? 'هذا المعرّف مستخدم؛ اختر معرفًا آخر.' : 'تعذّر حفظ الحساب: ' + error.message, 'warn'); return; }
+  profileCache = data;
+  showToast('تم حفظ الحساب ✓');
+  renderProfileView();
+}
+
+function renderProfileView(){
+  const el = document.getElementById('profileView');
+  if(!el) return;
+  const p = profileCache || {};
+  const name = p.display_name || '';
+  const handle = p.handle || '';
+  const focusMinutes = entriesCache.filter(e => e.type === 'tarkiz').reduce((s,e) => s + (Number(e.focus_minutes) || 0), 0);
+  const books = studiedBooks(entriesCache);
+  const created = accountCreatedAt || p.created_at;
+  const avatar = p.avatar_url ? `<img class="avatar" src="${attrEscape(p.avatar_url)}" alt="صورة الحساب" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'avatar',textContent:'${attrEscape(initials(name))}'}))">` : `<div class="avatar">${escapeHtml(initials(name))}</div>`;
+  el.innerHTML = `
+    ${renderCalendar(entriesCache)}
+    <div class="profile-card">
+      <div class="profile-head">${avatar}<div><div class="profile-name">${escapeHtml(name || 'أكمل بيانات حسابك')}</div><div class="profile-handle">${handle ? '@' + escapeHtml(handle) : 'اختر معرّفًا مميزًا لميزة الأصدقاء مستقبلًا'}</div></div></div>
+      <div class="profile-stats"><div class="profile-stat"><b>${focusHoursLabel(focusMinutes)}</b>إجمالي التركيز</div><div class="profile-stat"><b>${books.length}</b>كتب دَرستها</div><div class="profile-stat"><b>${created ? formatDate(created.slice(0,10)) : '—'}</b>تاريخ التسجيل</div></div>
+      <div class="row2"><div class="field"><label>الاسم</label><input id="profileName" value="${attrEscape(name)}" placeholder="اسمك الظاهر"></div><div class="field"><label>المعرّف المميز</label><input id="profileHandle" value="${attrEscape(handle)}" placeholder="مثال: talib_ilm"></div></div>
+      <div class="field"><label>رابط الصورة (اختياري)</label><input id="profileAvatar" value="${attrEscape(p.avatar_url || '')}" placeholder="https://example.com/photo.jpg"></div>
+      <button class="primary" onclick="saveProfile()">حفظ الحساب</button>
+    </div>
+    ${renderAchievements(entriesCache, booksCache)}
+    <div class="profile-card"><div class="timeline-head"><h2>الكتب التي درستها</h2></div>${books.length ? `<div class="tags-row">${books.map(b=>`<span class="tag-chip">📖 ${escapeHtml(b.name)}</span>`).join('')}</div>` : '<div class="hint">اربط جلسة تركيز بكتاب ليظهر هنا.</div>'}</div>`;
+}
 
 let statsRange = 7;
 
