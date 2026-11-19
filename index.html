@@ -343,10 +343,10 @@
   .tr-row.r .tr-branch{right:0;}
   .tr-row.l .tr-branch{left:0;transform:translateY(-50%) scaleX(-1);}
   .tr-branch path{vector-effect:non-scaling-stroke;stroke-linecap:round;transition:fill .3s,stroke .3s;}
-  .tr-branch .limb{fill:#242424;stroke:#363636;stroke-width:1;}
+  .tr-branch .limb{fill:var(--lv,#242424);stroke:#363636;stroke-width:1;}
   .tr-branch .limb2{fill:none;stroke:#6a6a6a;stroke-width:1.2;opacity:.8;}
   .tr-branch .twig{fill:none;stroke:#474747;stroke-width:2;}
-  .tr-row.open .limb{fill:#363636;}
+  .tr-row.open .limb{fill:var(--lvo,#363636);}
   .tr-row.open .limb2{stroke:#d4d4d4;}
   .tr-row.open .twig{stroke:#8c8c8c;}
   .tr-branch.grow{animation:trReveal .9s ease-out backwards;animation-delay:var(--d,0s);}
@@ -408,6 +408,26 @@
   .tr-none{font-size:.82rem;color:#888;padding:12px 2px;}
   .tr-roots{display:block;width:170px;height:40px;margin:0 auto;position:relative;z-index:1;}
   .tr-roots path{fill:none;stroke:#262626;stroke-linecap:round;}
+
+  /* ===== حركة وتفاعل الشجرة ===== */
+  .tree-stage{position:relative;border-radius:18px;overflow:hidden;}
+  .tr-fx{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden;border-radius:18px;}
+  .tr-fx i{position:absolute;bottom:-2%;width:3px;height:3px;border-radius:50%;background:#d9c27a;box-shadow:0 0 6px 1px rgba(217,194,122,.55);opacity:0;
+    animation:trFloat var(--t,12s) linear infinite var(--dl,0s),trDrift 5s ease-in-out infinite alternate var(--dl,0s);}
+  @keyframes trFloat{0%{bottom:-2%;opacity:0;}10%{opacity:.75;}90%{opacity:.45;}100%{bottom:102%;opacity:0;}}
+  @keyframes trDrift{from{translate:-8px 0;}to{translate:10px 0;}}
+  .tr-branch .sway{transform-origin:0 38px;animation:trSway 8s ease-in-out infinite alternate;animation-delay:var(--sd,0s);}
+  @keyframes trSway{from{transform:rotate(-.9deg);}to{transform:rotate(.9deg);}}
+  .tr-row.intro .tr-node{animation:trIn .55s ease backwards;animation-delay:calc(var(--d,0s) + .25s);}
+  @keyframes trIn{from{opacity:0;transform:translateY(10px) scale(.96);}to{opacity:1;transform:none;}}
+  .tr-node{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+  .tr-node:active{transform:scale(.975);}
+  .tr-row{transition:transform .2s;}
+  .tr-row.dragging{z-index:8;transition:none;filter:drop-shadow(0 10px 18px rgba(0,0,0,.6));}
+  .tr-row.dragging .tr-node{border-color:#e6e6e6;box-shadow:0 0 22px rgba(255,255,255,.18);}
+  .tree-wrap.is-dragging{cursor:grabbing;-webkit-user-select:none;user-select:none;}
+  .header-avatar.active{box-shadow:0 0 0 3px var(--gold);}
+  @media (prefers-reduced-motion:reduce){.tr-fx{display:none;}.tr-branch .sway,.tr-row.intro .tr-node{animation:none;}}
 
   /* ===== صفحة الحساب الجديدة: أوسمة وإحصائيات قابلة للطي ===== */
   .pf-top{display:flex;align-items:center;gap:16px;margin-bottom:14px;}
@@ -739,7 +759,6 @@ async function renderApp(){
       <button class="tab-btn" id="tabPath" onclick="switchTab('path')">الطريق</button>
       <button class="tab-btn" id="tabFocus" onclick="switchTab('focus')">التركيز</button>
       <button class="tab-btn" id="tabStats" onclick="switchTab('stats')">الإحصائيات</button>
-      <button class="tab-btn" id="tabProfile" onclick="switchTab('profile')">الحساب</button>
     </div>
 
     <div id="dailyView"></div>
@@ -760,9 +779,10 @@ function switchTab(tab){
   if(tab==='path') currentSubjectId = null;
   const tabs = {daily:['tabDaily','dailyView'], path:['tabPath','pathView'], focus:['tabFocus','focusView'], stats:['tabStats','statsView'], profile:['tabProfile','profileView']};
   Object.entries(tabs).forEach(([k,[btn,view]])=>{
-    document.getElementById(btn).classList.toggle('active', k===tab);
+    document.getElementById(btn)?.classList.toggle('active', k===tab);
     document.getElementById(view).style.display = k===tab ? '' : 'none';
   });
+  document.getElementById('headerAvatar')?.classList.toggle('active', tab==='profile');
   if(tab==='path') renderPathView();
   if(tab==='daily'){ loadEntries(); syncBooksUi(); }
   if(tab==='focus') syncBooksUi();
@@ -1053,15 +1073,19 @@ async function renderPathView(){
   const el = document.getElementById('pathView');
   if(!el) return;
   if(!document.getElementById('treeWrap')){
+    const fx = Array.from({length:16}, (_, i) => `<i style="left:${(i * 29 + 7) % 96}%;--t:${(9 + (i % 5) * 2.2).toFixed(1)}s;--dl:-${(i * 1.9).toFixed(1)}s"></i>`).join('');
     el.innerHTML = `
       <div class="timeline-head">
         <h2>الطريق</h2>
         <button class="primary" onclick="openAddSubjectForm()">+ إضافة علم مخصص</button>
       </div>
       <div id="subjectFormWrap"></div>
-      <div class="tree-hint">اضغط على غصن أي علم لتفتح كتبه.</div>
+      <div class="tree-hint">اضغط على غصن أي علم لتفتح كتبه، واضغط مطولًا لتحريكه وترتيبه.</div>
       <div class="tree-legend"><span><i class="lg-cur"></i>تدرسه الآن</span><span><i class="lg-done"></i>مكتمل</span><span><i class="lg-todo"></i>لم يبدأ</span><span>غصن أسمك = إنجاز أكثر</span><span>غصن خافت = علم مهمل</span></div>
-      <div id="treeWrap" class="tree-wrap"><div class="empty tree-empty">جاري التحميل...</div></div>`;
+      <div class="tree-stage">
+        <div id="treeWrap" class="tree-wrap"><div class="empty tree-empty">جاري التحميل...</div></div>
+        <div class="tr-fx" aria-hidden="true">${fx}</div>
+      </div>`;
     trDrawn = false;
   }
   await trLoad();
@@ -1075,15 +1099,18 @@ async function trLoad(){
   if(error){ wrap.innerHTML = `<div class="empty tree-empty">تعذّر التحميل: ${escapeHtml(error.message)}</div>`; return; }
   await refreshBooksCache();
   if(!entriesCache.length) await loadEntries();
-  trSubs = [...(data || [])].sort((a,b) => {
-    const ai = PRESET_SUBJECTS.indexOf(a.name), bi = PRESET_SUBJECTS.indexOf(b.name);
-    if(ai === -1 && bi === -1) return (a.sort_order || 0) - (b.sort_order || 0);
-    if(ai === -1) return 1;
-    if(bi === -1) return -1;
-    return ai - bi;
-  });
+  trSubs = [...(data || [])].sort((a,b) => ((a.sort_order || 0) - (b.sort_order || 0)) || String(a.created_at || '').localeCompare(String(b.created_at || '')));
   if(trOpen && !trSubs.some(s => s.id === trOpen)){ trOpen = null; currentSubjectId = null; }
   trDraw();
+}
+
+// العلوم التي فيها كتاب جارٍ (نقطة ذهبية) تبقى في الأعلى، مع حفظ الترتيب اليدوي داخل كل مجموعة
+function trPartition(){
+  const hasCur = s => booksCache.some(b => b.subject_id === s.id && b.status === 'in_progress');
+  const next = [...trSubs.filter(hasCur), ...trSubs.filter(s => !hasCur(s))];
+  const changed = next.some((s, i) => s.id !== trSubs[i].id);
+  trSubs = next;
+  return changed;
 }
 
 async function loadSubjectsGrid(){ await trLoad(); }
@@ -1098,6 +1125,7 @@ function trDraw(){
   const wrap = document.getElementById('treeWrap');
   if(!wrap) return;
   if(!trSubs.length){ wrap.innerHTML = '<div class="empty tree-empty">لا توجد علوم بعد.</div>'; return; }
+  trPartition();
   const grow = !trDrawn;
   trDrawn = true;
   wrap.innerHTML = `${TR_TRUNK}${trSubs.map((s,i) => trRowHtml(s, i, grow)).join('')}${TR_ROOTS}`;
@@ -1112,15 +1140,19 @@ function trLastActivity(books){
 
 // غصن مخروطي: سميك عند الجذع ورفيع عند الطرف، وسُمكه يزيد مع الإنجاز
 function trBranchSvg(i, grow, avg, n){
-  const t0 = n ? 8 + avg * 0.07 : 5;
-  const t1 = n ? 2.5 + avg * 0.02 : 1.8;
+  // السُّمك أوضح الآن: من رفيع جدًا (٠٪) إلى غليظ (١٠٠٪)
+  const t0 = n ? 5 + avg * 0.17 : 4;
+  const t1 = n ? 2 + avg * 0.045 : 1.6;
   const tm = (t0 + t1) / 2;
   const f = v => v.toFixed(1);
+  const lv = Math.round(34 + avg * 0.4);
   const limb = `M0 ${f(38 - t0/2)} C22 ${f(38 - t0/2)},32 ${f(30 - tm/2)},56 ${f(30 - tm/2)} C80 ${f(30 - tm/2)},86 ${f(30 - t1/2)},100 ${f(30 - t1/2)} L100 ${f(30 + t1/2)} C86 ${f(30 + t1/2)},80 ${f(30 + tm/2)},56 ${f(30 + tm/2)} C32 ${f(30 + tm/2)},22 ${f(38 + t0/2)},0 ${f(38 + t0/2)} Z`;
-  return `<svg class="tr-branch${grow ? ' grow' : ''}" style="--d:${(i * 0.12).toFixed(2)}s" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">
-    <path class="twig" d="${TR_TWIGS[i % 3]}"/>
-    <path class="limb" d="${limb}"/>
-    <path class="limb2" d="M0 ${f(38 - t0/2 + 1)} C22 ${f(38 - t0/2 + 1)},32 ${f(30 - tm/2 + 1)},56 ${f(30 - tm/2 + 1)} C80 ${f(30 - tm/2 + 1)},86 ${f(30 - t1/2 + 1)},100 ${f(30 - t1/2 + 1)}"/>
+  return `<svg class="tr-branch${grow ? ' grow' : ''}" style="--d:${(i * 0.12).toFixed(2)}s;--lv:rgb(${lv},${lv},${lv});--lvo:rgb(${lv + 22},${lv + 22},${lv + 22})" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">
+    <g class="sway" style="--sd:-${((i * 1.3) % 8).toFixed(1)}s">
+      <path class="twig" d="${TR_TWIGS[i % 3]}"/>
+      <path class="limb" d="${limb}"/>
+      <path class="limb2" d="M0 ${f(38 - t0/2 + 1)} C22 ${f(38 - t0/2 + 1)},32 ${f(30 - tm/2 + 1)},56 ${f(30 - tm/2 + 1)} C80 ${f(30 - tm/2 + 1)},86 ${f(30 - t1/2 + 1)},100 ${f(30 - t1/2 + 1)}"/>
+    </g>
   </svg>`;
 }
 
@@ -1152,11 +1184,11 @@ function trRowHtml(s, i, grow){
   const last = trLastActivity(books);
   const stale = books.length > 0 && (!last || (Date.now() - new Date(last + 'T00:00:00').getTime()) > 30 * 86400000);
   const open = trOpen === s.id;
-  const cls = ['tr-row', side, open ? 'open' : '', cur ? 'has-cur' : '', (books.length && done === books.length) ? 'full' : '', stale ? 'stale' : '', books.length ? '' : 'bare'].filter(Boolean).join(' ');
-  return `<div class="${cls}" id="tr-${s.id}">
+  const cls = ['tr-row', side, grow ? 'intro' : '', open ? 'open' : '', cur ? 'has-cur' : '', (books.length && done === books.length) ? 'full' : '', stale ? 'stale' : '', books.length ? '' : 'bare'].filter(Boolean).join(' ');
+  return `<div class="${cls}" id="tr-${s.id}" style="--d:${(i * 0.12).toFixed(2)}s">
     ${trBranchSvg(i, grow, avg, books.length)}
     ${trFruits(i, cur, done)}
-    <button class="tr-node" onclick="trToggle('${s.id}')" aria-expanded="${open}">
+    <button class="tr-node" onclick="trToggle('${s.id}')" onpointerdown="trPressStart(event,'${s.id}')" aria-expanded="${open}">
       <span class="tr-name">${escapeHtml(s.name)}</span>
       <span class="tr-meta">${books.length ? books.length + ' كتاب/متن · ' + avg + '%' : 'لا كتب بعد'}</span>
       ${books.length ? trDotsHtml(books) : ''}
@@ -1210,6 +1242,7 @@ function trBookHtml(b){
 }
 
 function trToggle(id){
+  if(trSuppressClick) return;      // النقرة التي تعقب السحب لا تفتح العلم
   trOpen = trOpen === id ? null : id;
   const s = trSubs.find(x => x.id === id);
   currentSubjectId = trOpen;
@@ -1230,6 +1263,113 @@ function trEditBook(id){
   currentSubjectId = b.subject_id;
   openBookForm(b);
   document.getElementById('bookFormWrap')?.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+
+/* ---- سحب الأغصان لإعادة الترتيب (ضغط مطوّل ثم سحب) ---- */
+
+let trDrag = null, trSuppressClick = false;
+document.addEventListener('touchmove', e => { if(trDrag && e.cancelable) e.preventDefault(); }, {passive:false});
+
+function trPressStart(e, id){
+  if(e.button !== undefined && e.button !== 0) return;
+  const x0 = e.clientX, y0 = e.clientY;
+  const mv = ev => { if(Math.hypot(ev.clientX - x0, ev.clientY - y0) > 9) detach(); };
+  const detach = () => {
+    clearTimeout(timer);
+    window.removeEventListener('pointermove', mv);
+    window.removeEventListener('pointerup', detach);
+    window.removeEventListener('pointercancel', detach);
+  };
+  const timer = setTimeout(() => { detach(); trBeginDrag(id, y0); }, 380);
+  window.addEventListener('pointermove', mv);
+  window.addEventListener('pointerup', detach);
+  window.addEventListener('pointercancel', detach);
+}
+
+function trBeginDrag(id, y){
+  const wrap = document.getElementById('treeWrap');
+  if(!wrap) return;
+  if(trOpen){ trOpen = null; currentSubjectId = null; trDraw(); }   // نطوي اللوحة المفتوحة ليسهل السحب
+  const rows = [...wrap.querySelectorAll('.tr-row')];
+  const idx = trSubs.findIndex(s => s.id === id);
+  if(idx < 0 || !rows[idx]) return;
+  trDrag = {idx, cur: idx, el: rows[idx], rows, rects: rows.map(r => ({top: r.offsetTop, h: r.offsetHeight})), startY: y, y, startScroll: window.scrollY, raf: 0};
+  rows[idx].classList.add('dragging');
+  wrap.classList.add('is-dragging');
+  if(navigator.vibrate) navigator.vibrate(18);
+  window.addEventListener('pointermove', trDragMove);
+  window.addEventListener('pointerup', trDragEnd);
+  window.addEventListener('pointercancel', trDragEnd);
+  trDrag.raf = requestAnimationFrame(trDragLoop);
+}
+
+function trDragMove(e){ if(trDrag) trDrag.y = e.clientY; }
+
+function trDragLoop(){
+  const d = trDrag;
+  if(!d) return;
+  const vh = window.innerHeight;
+  if(d.y < 90) window.scrollBy(0, -10);
+  else if(d.y > vh - 90) window.scrollBy(0, 10);
+  const dy = (d.y - d.startY) + (window.scrollY - d.startScroll);
+  const h0 = d.rects[d.idx].h;
+  d.el.style.transform = `translateY(${dy}px) scale(1.02)`;
+  const center = d.rects[d.idx].top + h0 / 2 + dy;
+  let ni = d.idx;
+  d.rects.forEach((r, k) => {
+    if(k === d.idx) return;
+    const c = r.top + r.h / 2;
+    if(k < d.idx && center < c) ni = Math.min(ni, k);
+    if(k > d.idx && center > c) ni = Math.max(ni, k);
+  });
+  d.rows.forEach((r, k) => {
+    if(k === d.idx) return;
+    let sh = 0;
+    if(ni > d.idx && k > d.idx && k <= ni) sh = -h0;
+    else if(ni < d.idx && k >= ni && k < d.idx) sh = h0;
+    r.style.transform = sh ? `translateY(${sh}px)` : '';
+  });
+  d.cur = ni;
+  d.raf = requestAnimationFrame(trDragLoop);
+}
+
+function trDragEnd(){
+  const d = trDrag;
+  if(!d) return;
+  cancelAnimationFrame(d.raf);
+  window.removeEventListener('pointermove', trDragMove);
+  window.removeEventListener('pointerup', trDragEnd);
+  window.removeEventListener('pointercancel', trDragEnd);
+  trDrag = null;
+  trSuppressClick = true;
+  setTimeout(() => { trSuppressClick = false; }, 350);
+  document.getElementById('treeWrap')?.classList.remove('is-dragging');
+  d.rows.forEach(r => { r.style.transform = ''; });
+  if(d.cur !== d.idx){
+    const [m] = trSubs.splice(d.idx, 1);
+    trSubs.splice(d.cur, 0, m);
+    const forced = trPartition();
+    trSaveOrder();
+    if(forced) showToast('العلوم التي فيها نقطة ذهبية تبقى في الأعلى');
+  }
+  trDraw();
+}
+
+async function trSaveOrder(){
+  const jobs = [];
+  trSubs.forEach((s, i) => {
+    const so = i * 10;
+    if(s.sort_order !== so){
+      s.sort_order = so;
+      jobs.push(sb.from('subjects').update({sort_order: so}).eq('id', s.id));
+    }
+  });
+  if(!jobs.length) return;
+  const res = await Promise.all(jobs);
+  const bad = res.find(r => r.error);
+  if(bad) showToast('تعذّر حفظ الترتيب: ' + bad.error.message, 'warn');
+  else showToast('تم حفظ ترتيب الأغصان ✓');
 }
 
 
