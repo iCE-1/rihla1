@@ -329,41 +329,71 @@
   .collapsible-body{margin-top:12px;}.collapsed .collapsible-body{display:none;}
 
   /* ===== الطريق: شجرة العلوم ===== */
-  .tree-hint{font-size:.8rem;color:var(--ink-soft);margin:-6px 0 12px;}
-  .tree-wrap{position:relative;background:radial-gradient(ellipse at 50% 100%,#1c1c1c,#0a0a0a 70%);border:1px solid #222;border-radius:18px;padding:26px 12px 10px;overflow:hidden;}
+  .tree-hint{font-size:.8rem;color:var(--ink-soft);margin:-6px 0 6px;}
+  .tree-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.72rem;color:var(--ink-soft);margin-bottom:12px;}
+  .tree-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:5px;vertical-align:middle;}
+  .lg-cur{background:var(--gold);box-shadow:0 0 6px var(--gold);}
+  .lg-done{background:#eee;}
+  .lg-todo{border:1px solid #777;}
+  .tree-wrap{position:relative;background:radial-gradient(ellipse at 50% 100%,#1d1d1d,#0a0a0a 72%);border:1px solid #222;border-radius:18px;padding:26px 12px 10px;overflow:hidden;}
   .tree-empty{color:#999;}
-  .tr-trunk{position:absolute;left:50%;transform:translateX(-50%);top:12px;bottom:44px;width:26px;z-index:0;
-    background:repeating-linear-gradient(90deg,#1b1b1b 0 3px,#2d2d2d 3px 5px,#151515 5px 9px);
-    clip-path:polygon(41% 0,59% 0,100% 100%,0 100%);}
+  .tr-trunk{position:absolute;left:50%;transform:translateX(-50%);top:8px;bottom:40px;width:30px;height:calc(100% - 48px);z-index:0;filter:drop-shadow(0 0 14px rgba(255,255,255,.05));}
   .tr-row{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;align-items:center;padding:16px 0;direction:rtl;}
-  .tr-branch{position:absolute;top:50%;width:50%;height:48px;transform:translateY(-50%);overflow:visible;pointer-events:none;z-index:0;}
+  .tr-branch{position:absolute;top:50%;width:50%;height:48px;transform:translateY(-50%);overflow:visible;pointer-events:none;z-index:0;transition:opacity .3s;}
   .tr-row.r .tr-branch{right:0;}
   .tr-row.l .tr-branch{left:0;transform:translateY(-50%) scaleX(-1);}
-  .tr-branch path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round;}
-  .tr-branch .limb{stroke:#2b2b2b;stroke-width:10;}
-  .tr-branch .limb2{stroke:#6c6c6c;stroke-width:3;}
-  .tr-branch .twig{stroke:#4b4b4b;stroke-width:2;}
-  .tr-row.open .limb2{stroke:#d0d0d0;}
-  .tr-row.open .twig{stroke:#8a8a8a;}
-  .tr-branch.grow path{stroke-dasharray:1;stroke-dashoffset:1;animation:trGrow .9s ease-out forwards;animation-delay:var(--d,0s);}
-  @keyframes trGrow{to{stroke-dashoffset:0;}}
-  @media (prefers-reduced-motion:reduce){.tr-branch.grow path{animation:none;stroke-dashoffset:0;}}
-  .tr-node{position:relative;z-index:2;width:68%;background:#121212;border:1px solid #333;border-radius:14px;padding:10px 12px;text-align:right;color:#e8e8e8;cursor:pointer;font-family:inherit;transition:.15s;}
+  .tr-branch path{vector-effect:non-scaling-stroke;stroke-linecap:round;transition:fill .3s,stroke .3s;}
+  .tr-branch .limb{fill:#242424;stroke:#363636;stroke-width:1;}
+  .tr-branch .limb2{fill:none;stroke:#6a6a6a;stroke-width:1.2;opacity:.8;}
+  .tr-branch .twig{fill:none;stroke:#474747;stroke-width:2;}
+  .tr-row.open .limb{fill:#363636;}
+  .tr-row.open .limb2{stroke:#d4d4d4;}
+  .tr-row.open .twig{stroke:#8c8c8c;}
+  .tr-branch.grow{animation:trReveal .9s ease-out backwards;animation-delay:var(--d,0s);}
+  @keyframes trReveal{from{clip-path:inset(0 100% 0 0);}to{clip-path:inset(0);}}
+  .tr-row.stale .tr-branch,.tr-row.stale .tr-fruits{opacity:.45;}
+  .tr-row.bare .tr-branch{opacity:.5;}
+  .tr-fruits{position:absolute;top:50%;width:50%;height:48px;transform:translateY(-50%);pointer-events:none;z-index:1;}
+  .tr-row.r .tr-fruits{right:0;}
+  .tr-row.l .tr-fruits{left:0;}
+  .tr-fruit{position:absolute;top:var(--y);width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%);}
+  .tr-row.r .tr-fruit{left:var(--x);}
+  .tr-row.l .tr-fruit{right:var(--x);transform:translate(50%,-50%);}
+  .tr-fruit.gold{background:var(--gold);box-shadow:0 0 10px 2px rgba(212,175,90,.55);animation:trPulse 2.6s ease-in-out infinite;}
+  .tr-fruit.white{background:#f2f2f2;box-shadow:0 0 8px 1px rgba(255,255,255,.45);}
+  @keyframes trPulse{50%{box-shadow:0 0 16px 4px rgba(212,175,90,.8);}}
+  @media (prefers-reduced-motion:reduce){.tr-branch.grow,.tr-fruit.gold,.tr-panel.pop{animation:none;}}
+  .tr-node{position:relative;z-index:2;width:62%;background:#121212;border:1px solid #333;border-radius:14px;padding:10px 12px;text-align:right;color:#e8e8e8;cursor:pointer;font-family:inherit;transition:border-color .2s,box-shadow .2s;}
   .tr-row.r .tr-node{grid-column:1;justify-self:start;}
   .tr-row.l .tr-node{grid-column:2;justify-self:end;}
   .tr-node:hover{border-color:#777;}
+  .tr-row.has-cur .tr-node{border-color:#6a5a2c;box-shadow:0 0 14px rgba(212,175,90,.12);}
+  .tr-row.full .tr-node{border-color:#d8d8d8;}
   .tr-row.open .tr-node{border-color:#c4c4c4;box-shadow:0 0 18px rgba(255,255,255,.09);}
+  .tr-row.stale .tr-name{color:#9d9d9d;}
   .tr-name{display:block;font-family:'Aref Ruqaa',serif;font-size:1.08rem;line-height:1.35;}
   .tr-meta{display:block;font-size:.72rem;color:#8f8f8f;margin-top:2px;}
+  .tr-dots{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;}
+  .tr-dots i{width:7px;height:7px;border-radius:50%;border:1px solid #555;}
+  .tr-dots i.d-done{background:#eee;border-color:#eee;}
+  .tr-dots i.d-cur{background:var(--gold);border-color:var(--gold);box-shadow:0 0 6px var(--gold);}
+  .tr-dots small{font-size:.65rem;color:#888;line-height:7px;}
   .tr-bar{display:block;height:3px;background:#262626;border-radius:3px;overflow:hidden;margin-top:7px;}
-  .tr-bar i{display:block;height:100%;background:linear-gradient(90deg,#777,#e0e0e0);}
+  .tr-bar i{display:block;height:100%;background:linear-gradient(90deg,#777,#e0e0e0);transition:width .4s;}
   .tr-panel{grid-column:1 / -1;margin-top:12px;background:#101010;border:1px solid #2a2a2a;border-radius:14px;padding:12px;color:#ddd;position:relative;z-index:2;}
+  .tr-panel.pop{animation:trOpen .25s ease;}
+  @keyframes trOpen{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}
   .tr-panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:.78rem;color:#9a9a9a;}
   .tr-actions{display:flex;gap:6px;flex-wrap:wrap;}
   .tr-actions button{background:#1b1b1b;color:#d0d0d0;border:1px solid #353535;border-radius:999px;padding:4px 12px;font-family:inherit;font-size:.74rem;cursor:pointer;}
   .tr-actions button:hover{border-color:#999;}
-  .tr-books{margin-top:6px;}
-  .tr-book{background:#161616;border-right:2px solid #3a3a3a;border-radius:8px;padding:9px 11px;margin-top:9px;}
+  .tr-books{margin-top:4px;}
+  .tr-level{position:relative;margin-top:14px;padding-right:18px;}
+  .tr-level::before{content:"";position:absolute;right:5px;top:16px;bottom:14px;width:1px;background:linear-gradient(#444,#262626);}
+  .tr-lvl-title{position:relative;font-size:.72rem;color:#8a8a8a;letter-spacing:.3px;}
+  .tr-lvl-title::before{content:"";position:absolute;right:-18px;top:4px;width:11px;height:11px;border-radius:50%;background:#1a1a1a;border:1px solid #555;}
+  .tr-book{position:relative;background:#161616;border-right:2px solid #3a3a3a;border-radius:8px;padding:9px 11px;margin-top:9px;}
+  .tr-book::before{content:"";position:absolute;right:-18px;top:20px;width:16px;height:1px;background:#333;}
   .tr-book.cur{border-right-color:var(--gold);}
   .tr-book.done{border-right-color:#e6e6e6;}
   .tr-book-top{display:flex;align-items:center;gap:8px;}
@@ -376,8 +406,8 @@
   .tr-book-cur{font-size:.78rem;color:#bbb;margin-top:5px;}
   .tr-book .tr-actions{margin-top:8px;}
   .tr-none{font-size:.82rem;color:#888;padding:12px 2px;}
-  .tr-roots{display:block;width:150px;height:36px;margin:0 auto;position:relative;z-index:1;}
-  .tr-roots path{fill:none;stroke:#2b2b2b;stroke-width:5;stroke-linecap:round;}
+  .tr-roots{display:block;width:170px;height:40px;margin:0 auto;position:relative;z-index:1;}
+  .tr-roots path{fill:none;stroke:#262626;stroke-linecap:round;}
 
   /* ===== صفحة الحساب الجديدة: أوسمة وإحصائيات قابلة للطي ===== */
   .pf-top{display:flex;align-items:center;gap:16px;margin-bottom:14px;}
@@ -1008,14 +1038,16 @@ function normalizeDigits(str){
 
 /* ============ الطريق: شجرة العلوم ============ */
 
-let trSubs = [], trOpen = null, trPresetDone = false, trDrawn = false;
+let trSubs = [], trOpen = null, trPresetDone = false, trDrawn = false, trPop = null;
 const TR_STATUS = {in_progress:{ic:'●', cls:'cur'}, complete:{ic:'✓', cls:'done'}, todo:{ic:'○', cls:'todo'}};
 const TR_TWIGS = [
-  'M14 38 C20 28,24 21,30 10 M26 36 C30 44,34 50,42 57',
-  'M12 37 C18 30,22 24,32 18 M30 34 C34 43,38 49,46 54',
-  'M16 36 C22 27,26 20,34 8 M22 38 C26 45,30 51,36 58'
+  'M10 38 C15 30,19 22,26 8 M20 37 C24 45,28 51,34 57',
+  'M12 37 C16 31,21 25,28 18 M24 35 C28 43,31 49,35 54',
+  'M12 36 C16 28,20 20,24 8 M18 38 C22 46,27 52,32 58'
 ];
-const TR_ROOTS = '<svg class="tr-roots" viewBox="0 0 150 36" aria-hidden="true"><path d="M75 0 C75 12,45 14,12 34 M75 0 C75 12,105 14,138 34 M75 0 C73 16,70 26,64 36 M75 0 C77 16,80 26,88 36"/></svg>';
+const TR_TIPS = [[[26,8],[34,57]], [[28,18],[35,54]], [[24,8],[32,58]]];
+const TR_TRUNK = '<svg class="tr-trunk" viewBox="0 0 40 400" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="trBark" x1="0" x2="1"><stop offset="0" stop-color="#0e0e0e"/><stop offset=".45" stop-color="#2b2b2b"/><stop offset=".72" stop-color="#1b1b1b"/><stop offset="1" stop-color="#0c0c0c"/></linearGradient></defs><path d="M17 0 C16 80,12 130,9 210 S3 330,0 400 L40 400 C37 330,31 290,30 210 S24 80,23 0 Z" fill="url(#trBark)"/><path d="M20 0 C19 100,16 200,14 400 M24 10 C25 120,27 260,30 400 M17 40 C14 160,12 280,8 400" fill="none" stroke="#080808" stroke-width="1" vector-effect="non-scaling-stroke" opacity=".85"/><path d="M40 400 C37 330,31 290,30 210 S24 80,23 0" fill="none" stroke="#6a6a6a" stroke-width="1" vector-effect="non-scaling-stroke" opacity=".35"/></svg>';
+const TR_ROOTS = '<svg class="tr-roots" viewBox="0 0 170 40" aria-hidden="true"><path stroke-width="7" d="M85 0 C85 12,52 15,14 38 M85 0 C85 12,118 15,156 38"/><path stroke-width="5" d="M85 0 C83 16,80 27,73 40 M85 0 C87 16,90 27,98 40"/><path stroke-width="3" d="M60 22 C52 26,44 28,36 36 M110 22 C118 26,126 28,134 36"/></svg>';
 
 async function renderPathView(){
   const el = document.getElementById('pathView');
@@ -1028,6 +1060,7 @@ async function renderPathView(){
       </div>
       <div id="subjectFormWrap"></div>
       <div class="tree-hint">اضغط على غصن أي علم لتفتح كتبه.</div>
+      <div class="tree-legend"><span><i class="lg-cur"></i>تدرسه الآن</span><span><i class="lg-done"></i>مكتمل</span><span><i class="lg-todo"></i>لم يبدأ</span><span>غصن أسمك = إنجاز أكثر</span><span>غصن خافت = علم مهمل</span></div>
       <div id="treeWrap" class="tree-wrap"><div class="empty tree-empty">جاري التحميل...</div></div>`;
     trDrawn = false;
   }
@@ -1041,6 +1074,7 @@ async function trLoad(){
   if(!wrap) return;
   if(error){ wrap.innerHTML = `<div class="empty tree-empty">تعذّر التحميل: ${escapeHtml(error.message)}</div>`; return; }
   await refreshBooksCache();
+  if(!entriesCache.length) await loadEntries();
   trSubs = [...(data || [])].sort((a,b) => {
     const ai = PRESET_SUBJECTS.indexOf(a.name), bi = PRESET_SUBJECTS.indexOf(b.name);
     if(ai === -1 && bi === -1) return (a.sort_order || 0) - (b.sort_order || 0);
@@ -1066,15 +1100,46 @@ function trDraw(){
   if(!trSubs.length){ wrap.innerHTML = '<div class="empty tree-empty">لا توجد علوم بعد.</div>'; return; }
   const grow = !trDrawn;
   trDrawn = true;
-  wrap.innerHTML = `<div class="tr-trunk"></div>${trSubs.map((s,i) => trRowHtml(s, i, grow)).join('')}${TR_ROOTS}`;
+  wrap.innerHTML = `${TR_TRUNK}${trSubs.map((s,i) => trRowHtml(s, i, grow)).join('')}${TR_ROOTS}`;
 }
 
-function trBranchSvg(i, grow){
+function trLastActivity(books){
+  const ids = new Set(books.map(b => b.id));
+  let m = '';
+  (entriesCache || []).forEach(e => { if(e.book_id && ids.has(e.book_id) && e.entry_date > m) m = e.entry_date; });
+  return m;
+}
+
+// غصن مخروطي: سميك عند الجذع ورفيع عند الطرف، وسُمكه يزيد مع الإنجاز
+function trBranchSvg(i, grow, avg, n){
+  const t0 = n ? 8 + avg * 0.07 : 5;
+  const t1 = n ? 2.5 + avg * 0.02 : 1.8;
+  const tm = (t0 + t1) / 2;
+  const f = v => v.toFixed(1);
+  const limb = `M0 ${f(38 - t0/2)} C22 ${f(38 - t0/2)},32 ${f(30 - tm/2)},56 ${f(30 - tm/2)} C80 ${f(30 - tm/2)},86 ${f(30 - t1/2)},100 ${f(30 - t1/2)} L100 ${f(30 + t1/2)} C86 ${f(30 + t1/2)},80 ${f(30 + tm/2)},56 ${f(30 + tm/2)} C32 ${f(30 + tm/2)},22 ${f(38 + t0/2)},0 ${f(38 + t0/2)} Z`;
   return `<svg class="tr-branch${grow ? ' grow' : ''}" style="--d:${(i * 0.12).toFixed(2)}s" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">
-    <path class="limb" pathLength="1" d="M0 38 C22 38,32 33,56 30 S86 27,100 30"/>
-    <path class="limb2" pathLength="1" d="M0 38 C22 38,32 33,56 30 S86 27,100 30"/>
-    <path class="twig" pathLength="1" d="${TR_TWIGS[i % 3]}"/>
+    <path class="twig" d="${TR_TWIGS[i % 3]}"/>
+    <path class="limb" d="${limb}"/>
+    <path class="limb2" d="M0 ${f(38 - t0/2 + 1)} C22 ${f(38 - t0/2 + 1)},32 ${f(30 - tm/2 + 1)},56 ${f(30 - tm/2 + 1)} C80 ${f(30 - tm/2 + 1)},86 ${f(30 - t1/2 + 1)},100 ${f(30 - t1/2 + 1)}"/>
   </svg>`;
+}
+
+// ثمار على أطراف الأغصان: ذهبية متوهجة لما تدرسه الآن، بيضاء لما أنهيته
+function trFruits(i, cur, done){
+  const tips = TR_TIPS[i % 3];
+  const mk = (t, cls) => `<span class="tr-fruit ${cls}" style="--x:${t[0]}%;--y:${(t[1] / 60 * 100).toFixed(1)}%"></span>`;
+  const out = [];
+  if(cur) out.push(mk(tips[0], 'gold'));
+  if(done) out.push(mk(tips[1], 'white'));
+  return out.length ? `<div class="tr-fruits">${out.join('')}</div>` : '';
+}
+
+function trDotsHtml(books){
+  const order = {complete:0, in_progress:1, todo:2};
+  const list = [...books].sort((a,b) => (order[a.status] ?? 3) - (order[b.status] ?? 3));
+  const shown = list.slice(0, 10);
+  const cls = s => s === 'complete' ? 'd-done' : (s === 'in_progress' ? 'd-cur' : '');
+  return `<span class="tr-dots">${shown.map(b => `<i class="${cls(b.status)}"></i>`).join('')}${list.length > 10 ? `<small>+${list.length - 10}</small>` : ''}</span>`;
 }
 
 function trRowHtml(s, i, grow){
@@ -1082,13 +1147,19 @@ function trRowHtml(s, i, grow){
   const books = booksCache.filter(b => b.subject_id === s.id);
   const pcts = books.map(b => bookProgressPct(b).pct);
   const avg = pcts.length ? Math.round(pcts.reduce((a,c) => a + c, 0) / pcts.length) : 0;
+  const cur = books.filter(b => b.status === 'in_progress').length;
+  const done = books.filter(b => b.status === 'complete').length;
+  const last = trLastActivity(books);
+  const stale = books.length > 0 && (!last || (Date.now() - new Date(last + 'T00:00:00').getTime()) > 30 * 86400000);
   const open = trOpen === s.id;
-  return `<div class="tr-row ${side}${open ? ' open' : ''}" id="tr-${s.id}">
-    ${trBranchSvg(i, grow)}
+  const cls = ['tr-row', side, open ? 'open' : '', cur ? 'has-cur' : '', (books.length && done === books.length) ? 'full' : '', stale ? 'stale' : '', books.length ? '' : 'bare'].filter(Boolean).join(' ');
+  return `<div class="${cls}" id="tr-${s.id}">
+    ${trBranchSvg(i, grow, avg, books.length)}
+    ${trFruits(i, cur, done)}
     <button class="tr-node" onclick="trToggle('${s.id}')" aria-expanded="${open}">
       <span class="tr-name">${escapeHtml(s.name)}</span>
       <span class="tr-meta">${books.length ? books.length + ' كتاب/متن · ' + avg + '%' : 'لا كتب بعد'}</span>
-      <span class="tr-bar"><i style="width:${avg}%"></i></span>
+      ${books.length ? trDotsHtml(books) : ''}
     </button>
     ${open ? trPanelHtml(s, books, avg) : ''}
   </div>`;
@@ -1111,13 +1182,17 @@ function trPanelHtml(s, books, avg){
     ((rank[a.status] ?? 9) - (rank[b.status] ?? 9)) ||
     ((Number(a.sort_order) || 0) - (Number(b.sort_order) || 0)) ||
     String(a.created_at || '').localeCompare(String(b.created_at || '')));
-  return `<div class="tr-panel">
+  const byLevel = new Map();
+  sorted.forEach(b => { const l = b.level || 1; if(!byLevel.has(l)) byLevel.set(l, []); byLevel.get(l).push(b); });
+  const levelsHtml = [...byLevel.entries()].map(([l, list]) =>
+    `<div class="tr-level"><div class="tr-lvl-title">المستوى ${arabicNumeral(l)}</div>${list.map(trBookHtml).join('')}</div>`).join('');
+  return `<div class="tr-panel${trPop === s.id ? ' pop' : ''}">
     <div class="tr-panel-head">
       <span>متوسط الإنجاز ${avg}%${bd ? ' — ' + bd : ''}</span>
       <span class="tr-actions"><button onclick="trAddBook('${s.id}')">+ إضافة كتاب</button>${isCustom ? `<button onclick="deleteSubject('${s.id}')">حذف العلم</button>` : ''}</span>
     </div>
     <div id="bookFormWrap"></div>
-    <div class="tr-books">${sorted.length ? sorted.map(trBookHtml).join('') : '<div class="tr-none">لسا ما أضفت كتب لهذا العلم. أضف أول كتاب أو متن ⤴</div>'}</div>
+    <div class="tr-books">${levelsHtml || '<div class="tr-none">لسا ما أضفت كتب لهذا العلم. أضف أول كتاب أو متن ⤴</div>'}</div>
   </div>`;
 }
 
@@ -1127,7 +1202,7 @@ function trBookHtml(b){
   const kind = (b.kind || 'matn') === 'book' ? 'كتاب' + ((b.volumes || 1) > 1 ? ' ' + arabicNumeral(b.volumes) + ' مجلدات' : '') : 'متن';
   return `<div class="tr-book ${st.cls}">
     <div class="tr-book-top"><span class="tr-dot">${st.ic}</span><span class="tr-book-name">${escapeHtml(b.name)}</span><span class="tr-pct">${p.pct}%</span></div>
-    <div class="tr-book-sub">المستوى ${arabicNumeral(b.level || 1)} · ${STATUS_LABELS[b.status] || ''} · ${kind} · ${p.done}/${p.total} ${p.unit}</div>
+    <div class="tr-book-sub">${STATUS_LABELS[b.status] || ''} · ${kind} · ${p.done}/${p.total} ${p.unit}</div>
     ${b.current_lesson ? `<div class="tr-book-cur">📝 ${escapeHtml(b.current_lesson)}</div>` : ''}
     <div class="tr-bar"><i style="width:${p.pct}%"></i></div>
     <div class="tr-actions"><button onclick="quickProgress('${b.id}')">＋ سجّل تقدّمي</button><button onclick="trEditBook('${b.id}')">تعديل</button><button onclick="deleteBook('${b.id}')">حذف</button></div>
@@ -1139,7 +1214,9 @@ function trToggle(id){
   const s = trSubs.find(x => x.id === id);
   currentSubjectId = trOpen;
   currentSubjectName = (trOpen && s) ? s.name : '';
+  trPop = trOpen;
   trDraw();
+  trPop = null;
   if(trOpen) document.getElementById('tr-' + id)?.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 function trAddBook(id){
