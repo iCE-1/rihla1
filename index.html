@@ -97,13 +97,7 @@
     padding:20px;margin-bottom:30px;
     position:relative;
   }
-  .entry-box::before{
-    content:"سجل اليوم";
-    position:absolute;top:-12px;right:16px;
-    background:var(--green-deep);color:var(--paper);
-    font-family:'Aref Ruqaa',serif;font-size:.95rem;
-    padding:3px 14px;
-  }
+  .entry-box::before{content:none;}
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:.82rem;color:var(--ink-soft);margin-bottom:5px;}
   .field textarea, .field input, .field select{
@@ -428,6 +422,37 @@
   .tree-wrap.is-dragging{cursor:grabbing;-webkit-user-select:none;user-select:none;}
   .header-avatar.active{box-shadow:0 0 0 3px var(--gold);}
   @media (prefers-reduced-motion:reduce){.tr-fx{display:none;}.tr-branch .sway,.tr-row.intro .tr-node{animation:none;}}
+
+  /* ===== تحسينات التجربة ===== */
+  #dailyView,#pathView,#focusView,#statsView,#profileView{animation:viewIn .3s ease;}
+  @keyframes viewIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .tab-btn{transition:color .2s,border-color .2s;}
+  @media (prefers-reduced-motion:reduce){#dailyView,#pathView,#focusView,#statsView,#profileView{animation:none;}}
+
+  .fold{padding:0;}
+  .fold-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 20px;background:transparent;border:0;color:var(--ink);font-family:'Aref Ruqaa',serif;font-size:1.15rem;cursor:pointer;text-align:right;}
+  .fold-chev{color:var(--ink-soft);font-family:'Tajawal',sans-serif;transition:transform .2s;}
+  .fold.collapsed .fold-chev{transform:rotate(-90deg);}
+  .fold-body{padding:0 20px 20px;}
+  .fold.collapsed .fold-body{display:none;}
+  .backup-box.fold{margin-top:26px;}
+
+  .vac-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;margin:-8px 0 20px;}
+  .vac-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;border:1px dashed var(--rule);background:transparent;color:var(--ink-soft);font-family:'Tajawal',sans-serif;font-size:.8rem;cursor:pointer;transition:.2s;}
+  .vac-pill:hover{border-color:var(--gold);color:var(--ink);}
+  .vac-pill.on{border-style:solid;border-color:var(--gold);background:rgba(212,175,90,.12);color:var(--gold);}
+  .vac-link{background:none;border:0;color:var(--ink-soft);font-family:'Tajawal',sans-serif;font-size:.75rem;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 2px;}
+  .vac-chip{font-size:.7rem;padding:2px 10px;border-radius:999px;background:var(--paper-dark);border:1px solid var(--rule);color:var(--ink-soft);cursor:pointer;}
+  .vac-chip:hover{border-color:var(--red);color:var(--red);}
+  .vac-panel{background:var(--paper-dark);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;margin:-6px 0 20px;}
+
+  .focus-ring-wrap{position:relative;width:230px;height:230px;margin:6px auto 12px;}
+  .focus-ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);}
+  .focus-ring circle{fill:none;stroke-width:7;stroke-linecap:round;}
+  .focus-ring .bg{stroke:var(--rule);}
+  .focus-ring .fg{stroke:var(--gold);transition:stroke-dashoffset .35s linear,stroke .3s;filter:drop-shadow(0 0 5px rgba(212,175,90,.35));}
+  .focus-ring-wrap[data-phase="short"] .fg,.focus-ring-wrap[data-phase="long"] .fg{stroke:var(--green-deep);filter:none;}
+  .focus-ring-wrap .focus-display{position:absolute;inset:0;display:grid;place-items:center;margin:0;font-size:2.9rem;}
 
   /* ===== صفحة الحساب الجديدة: أوسمة وإحصائيات قابلة للطي ===== */
   .pf-top{display:flex;align-items:center;gap:16px;margin-bottom:14px;}
@@ -773,9 +798,46 @@ async function renderApp(){
   renderFocusView();
   renderProfileView();
   openProfile();
+  const savedTab = localStorage.getItem(LAST_TAB_KEY);
+  if(['path','focus','stats','profile'].includes(savedTab)) switchTab(savedTab);
+  else restoreScroll('daily');
+}
+
+const LAST_TAB_KEY = 'rihla_last_tab';
+const SCROLL_KEY = 'rihla_scroll';
+let currentTab = 'daily', scrollMute = false, scrollToken = 0, scrollSaveTimer = null;
+let scrollMap = {};
+try { scrollMap = JSON.parse(localStorage.getItem(SCROLL_KEY) || '{}') || {}; } catch(e) {}
+
+function saveScrollMap(){ try{ localStorage.setItem(SCROLL_KEY, JSON.stringify(scrollMap)); }catch(e){} }
+
+window.addEventListener('scroll', () => {
+  if(scrollMute) return;
+  clearTimeout(scrollSaveTimer);
+  scrollSaveTimer = setTimeout(() => { scrollMap[currentTab] = Math.round(window.scrollY); saveScrollMap(); }, 200);
+}, {passive:true});
+
+// يعيدك إلى موضعك في التبويب بعد أن يكتمل تحميل محتواه
+function restoreScroll(tab){
+  const target = scrollMap[tab] || 0;
+  const token = ++scrollToken;
+  scrollMute = true;
+  const done = () => setTimeout(() => { if(token === scrollToken) scrollMute = false; }, 300);
+  if(!target){ window.scrollTo(0, 0); done(); return; }
+  const attempt = n => {
+    if(token !== scrollToken) return;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    if(max >= target - 4 || n >= 6){ window.scrollTo(0, target); done(); }
+    else setTimeout(() => attempt(n + 1), 250);
+  };
+  attempt(0);
 }
 
 function switchTab(tab){
+  if(currentTab !== tab){ scrollMap[currentTab] = Math.round(window.scrollY); }
+  currentTab = tab;
+  try{ localStorage.setItem(LAST_TAB_KEY, tab); }catch(e){}
+  saveScrollMap();
   if(tab==='path') currentSubjectId = null;
   const tabs = {daily:['tabDaily','dailyView'], path:['tabPath','pathView'], focus:['tabFocus','focusView'], stats:['tabStats','statsView'], profile:['tabProfile','profileView']};
   Object.entries(tabs).forEach(([k,[btn,view]])=>{
@@ -788,6 +850,7 @@ function switchTab(tab){
   if(tab==='focus') syncBooksUi();
   if(tab==='stats') openStats();
   if(tab==='profile') openProfile();
+  restoreScroll(tab);
 }
 
 /* ============ الكتب: ذاكرة مؤقتة + ربط بالسجل والتركيز ============ */
@@ -926,6 +989,17 @@ async function quickProgress(id){
   await loadBooks();
 }
 
+function boxCollapsed(k, def){
+  const v = localStorage.getItem('rihla_box_' + k);
+  return v === null ? !!def : v === '1';
+}
+function toggleBox(k){
+  const el = document.getElementById('box-' + k);
+  if(!el) return;
+  const c = el.classList.toggle('collapsed');
+  try{ localStorage.setItem('rihla_box_' + k, c ? '1' : '0'); }catch(e){}
+}
+
 function renderDailyView(){
   const el = document.getElementById('dailyView');
   el.innerHTML = `
@@ -934,7 +1008,9 @@ function renderDailyView(){
     <div id="dailyGoal"></div>
     <div id="vacationBar"></div>
     <div id="monthlySummary"></div>
-    <div class="entry-box">
+    <div class="entry-box fold${boxCollapsed('entry', false) ? ' collapsed' : ''}" id="box-entry">
+      <button class="fold-head" onclick="toggleBox('entry')"><span>سجل اليوم</span><span class="fold-chev">⌄</span></button>
+      <div class="fold-body">
       <div class="row2">
         <div class="field">
           <label>الكتاب</label>
@@ -961,6 +1037,7 @@ function renderDailyView(){
       <div id="cancelEditWrap" style="display:none;text-align:left;margin-top:-5px">
         <button class="ghost" onclick="cancelEditEntry()">إلغاء التعديل</button>
       </div>
+      </div>
     </div>
 
     <div class="timeline-head">
@@ -970,13 +1047,15 @@ function renderDailyView(){
       </span>
     </div>
     <div id="timeline"></div>
-    <div class="backup-box">
-      <div class="backup-head">النسخ الاحتياطي</div>
-      <div class="hint" id="backupInfo"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        <button class="primary" onclick="exportBackup()">⬇ تصدير نسخة احتياطية</button>
-        <button class="ghost" onclick="pickBackupFile()">⬆ استيراد من نسخة</button>
-        <input type="file" id="backupFile" accept="application/json,.json" style="display:none" onchange="importBackup(this)">
+    <div class="backup-box fold${boxCollapsed('backup', true) ? ' collapsed' : ''}" id="box-backup">
+      <button class="fold-head" onclick="toggleBox('backup')"><span>النسخ الاحتياطي والتصدير</span><span class="fold-chev">⌄</span></button>
+      <div class="fold-body">
+        <div class="hint" id="backupInfo"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button class="primary" onclick="exportBackup()">⬇ تصدير نسخة احتياطية</button>
+          <button class="ghost" onclick="pickBackupFile()">⬆ استيراد من نسخة</button>
+          <input type="file" id="backupFile" accept="application/json,.json" style="display:none" onchange="importBackup(this)">
+        </div>
       </div>
     </div>
     <div style="text-align:center;margin-top:10px">
@@ -1763,11 +1842,12 @@ function renderFocusPanel(){
         </div>
       </div>
       <div class="focus-phase-label" id="phaseLabel">${POMODORO_PHASE_LABELS[pomodoroPhase]} — الجولة ${pomodoroRound}</div>
-      <div class="focus-display" id="timerDisplay">--:--</div>
+      ${ringHtml('--:--')}
       <div class="focus-target" id="focusTarget"></div>
       <label class="focus-check"><input type="checkbox" id="autoLog" checked> أضف الجلسة تلقائيًا للسجل اليومي عند الانتهاء</label>
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
+      <div class="hint" id="wakeHint" style="text-align:center;margin-top:10px"></div>
     `;
   } else if(timerMode === 'free'){
     panel.innerHTML = `
@@ -1775,20 +1855,22 @@ function renderFocusPanel(){
         <label>عدد الدقائق</label>
         <input id="freeMinutes" type="text" inputmode="numeric" value="${pmCfg.free}" onchange="savePmCfg()" ${dis}>
       </div>
-      <div class="focus-display" id="timerDisplay">--:--</div>
+      ${ringHtml('--:--')}
       <div class="focus-target" id="focusTarget"></div>
       <label class="focus-check"><input type="checkbox" id="autoLog" checked> أضف الجلسة تلقائيًا للسجل اليومي عند الانتهاء</label>
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
+      <div class="hint" id="wakeHint" style="text-align:center;margin-top:10px"></div>
     `;
   } else {
     panel.innerHTML = `
       <div class="focus-phase-label">تبدأ من صفر وتستمر لين توقفها بنفسك</div>
-      <div class="focus-display" id="timerDisplay">00:00</div>
+      ${ringHtml('00:00')}
       <div class="focus-target" id="focusTarget"></div>
       <label class="focus-check"><input type="checkbox" id="autoLog" checked> سجّل الجلسة تلقائيًا بالسجل اليومي عند الإنهاء</label>
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
+      <div class="hint" id="wakeHint" style="text-align:center;margin-top:10px"></div>
     `;
   }
   panel.insertAdjacentHTML('afterbegin', focusLinkHtml());
@@ -1801,7 +1883,45 @@ function renderFocusPanel(){
   }
 }
 
+const RING_C = 2 * Math.PI * 100;
+let timerTotalMs = 0;
+let wakeLock = null;
+
+function ringHtml(txt){
+  return `<div class="focus-ring-wrap" id="focusRing" data-phase="${timerMode === 'pomodoro' ? pomodoroPhase : 'work'}">
+    <svg class="focus-ring" viewBox="0 0 220 220" aria-hidden="true"><circle class="bg" cx="110" cy="110" r="100"/><circle class="fg" id="ringFg" cx="110" cy="110" r="100" stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="0"/></svg>
+    <div class="focus-display" id="timerDisplay">${txt}</div>
+  </div>`;
+}
+function setRing(frac){
+  const fg = document.getElementById('ringFg');
+  if(fg) fg.style.strokeDashoffset = (RING_C * (1 - Math.max(0, Math.min(1, frac)))).toFixed(1);
+}
+
+async function acquireWake(){
+  try{
+    if('wakeLock' in navigator && !wakeLock){
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; updateWakeHint(); });
+    }
+  }catch(e){ wakeLock = null; }
+  updateWakeHint();
+}
+function releaseWake(){
+  try{ if(wakeLock) wakeLock.release(); }catch(e){}
+  wakeLock = null;
+  updateWakeHint();
+}
+function updateWakeHint(){
+  const h = document.getElementById('wakeHint');
+  if(h) h.textContent = (wakeLock && (timerRunning || stopwatchRunning)) ? '☀ الشاشة تبقى مضاءة أثناء الجلسة' : '';
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && (timerRunning || stopwatchRunning)) acquireWake();
+});
+
 function renderFocusControls(){
+  if(timerRunning || stopwatchRunning) acquireWake(); else releaseWake();
   const el = document.getElementById('focusControls');
   if(!el) return;
   if(timerMode === 'stopwatch'){
@@ -1857,6 +1977,7 @@ function updateStopwatchDisplay(ms){
   const disp = document.getElementById('timerDisplay');
   if(!disp) return;
   disp.textContent = formatElapsed(ms);
+  setRing((ms % 60000) / 60000);
   document.title = stopwatchRunning ? `${formatElapsed(ms)} • ${BASE_TITLE}` : BASE_TITLE;
 }
 
@@ -1957,6 +2078,7 @@ function startTimer(){
   const minutes = getPhaseDurationMinutes();
   if(minutes <= 0){ alert('حدد عدد دقائق أكبر من صفر'); return; }
   timerRemainingMs = minutes * 60000;
+  timerTotalMs = timerRemainingMs;
   const banner = document.getElementById('focusBanner');
   if(banner) banner.innerHTML = '';
   runTimer();
@@ -1993,6 +2115,7 @@ function pauseTimer(){
 }
 
 function resetTimer(){
+  timerTotalMs = 0;
   clearInterval(timerInterval);
   timerInterval = null;
   timerRunning = false;
@@ -2031,6 +2154,9 @@ function updateTimerDisplay(){
   const ss = String(totalSec%60).padStart(2,'0');
   disp.textContent = `${mm}:${ss}`;
   document.title = timerRunning ? `${mm}:${ss} • ${BASE_TITLE}` : BASE_TITLE;
+  let frac = 1;
+  if(timerRunning || timerRemainingMs > 0) frac = timerTotalMs > 0 ? timerRemainingMs / timerTotalMs : 1;
+  setRing(frac);
 }
 
 async function onTimerComplete(){
@@ -2233,6 +2359,7 @@ function startEditEntry(id){
   document.getElementById('entryReview').checked = isReviewEntry(entry);
   document.getElementById('saveEntryButton').textContent = 'حفظ التعديلات';
   document.getElementById('cancelEditWrap').style.display = '';
+  document.getElementById('box-entry')?.classList.remove('collapsed');
   document.querySelector('.entry-box').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
@@ -2619,18 +2746,12 @@ function renderVacationBar(){
   const ranges = vacRanges(set).filter(r => r.to >= toDateStr(cut));
   const fmt = ds => new Date(ds + 'T00:00:00').toLocaleDateString('ar-u-nu-latn-ca-gregory', {day:'numeric', month:'short'});
   el.innerHTML = `
-    <div class="goal-card${isVac ? ' goal-done' : ''}">
-      <div class="goal-row">
-        <span>🏖 ${isVac ? 'اليوم إجازة — سلسلتك محفوظة' : 'يوم إجازة'}</span>
-        <span style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="ghost" onclick="toggleVacationToday()">${isVac ? 'إلغاء إجازة اليوم' : 'اليوم إجازة'}</button>
-          <button class="ghost" onclick="vacOpen=!vacOpen;renderVacationBar()">${vacOpen ? 'إغلاق' : 'جدولة أيام'}</button>
-        </span>
-      </div>
-      ${vacOpen ? `<div class="row2" style="margin-top:10px"><div class="field"><label>من</label><input type="date" id="vacFrom" value="${today}"></div><div class="field"><label>إلى</label><input type="date" id="vacTo" value="${today}"></div></div><button class="primary" onclick="addVacationRange()">إضافة الإجازة</button>` : ''}
-      ${ranges.length ? `<div class="tags-row" style="margin-top:10px">${ranges.map(r => `<span class="tag-chip" style="cursor:pointer" title="اضغط لإلغاء هذه الإجازة" onclick="removeVacationRange('${r.from}','${r.to}')">🏖 ${fmt(r.from)}${r.to !== r.from ? ' ← ' + fmt(r.to) : ''} ✕</span>`).join('')}</div>` : ''}
-      <div class="hint">يوم الإجازة لا يكسر سلسلة المداومة، ولا يُحتسب يومًا فيها.</div>
-    </div>`;
+    <div class="vac-bar">
+      <button class="vac-pill${isVac ? ' on' : ''}" onclick="toggleVacationToday()" title="يوم الإجازة لا يكسر سلسلة المداومة ولا يُحتسب فيها">🏖 ${isVac ? 'اليوم إجازة ✓' : 'اليوم إجازة'}</button>
+      <button class="vac-link" onclick="vacOpen=!vacOpen;renderVacationBar()">${vacOpen ? 'إغلاق' : 'جدولة أيام'}</button>
+      ${ranges.map(r => `<span class="vac-chip" title="اضغط لإلغاء هذه الإجازة" onclick="removeVacationRange('${r.from}','${r.to}')">${fmt(r.from)}${r.to !== r.from ? ' ← ' + fmt(r.to) : ''} ✕</span>`).join('')}
+    </div>
+    ${vacOpen ? `<div class="vac-panel"><div class="row2"><div class="field"><label>من</label><input type="date" id="vacFrom" value="${today}"></div><div class="field"><label>إلى</label><input type="date" id="vacTo" value="${today}"></div></div><button class="primary" onclick="addVacationRange()">إضافة الإجازة</button><div class="hint">يوم الإجازة لا يكسر سلسلة المداومة، ولا يُحتسب يومًا فيها.</div></div>` : ''}`;
 }
 
 /* ============ الإحصائيات ============ */
