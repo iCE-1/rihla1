@@ -737,6 +737,8 @@ alter table entries add column if not exists book_id uuid references books(id) o
 alter table entries add column if not exists lesson_number int;
 create policy "update own" on entries for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 grant update on entries to authenticated;
+alter table books add column if not exists started_at date;
+alter table books add column if not exists finished_at date;
 notify pgrst, 'reload schema';</pre>
     <ol start="4">
       <li>من Authentication ← Providers، تأكد إن Email مفعّل (مفعّل افتراضيًا)</li>
@@ -1037,12 +1039,30 @@ function bookActivity(){
 }
 
 // سطر: تاريخ البداية + آخر دراسة + مدة الانقطاع
+function bookStart(b){
+  return b.started_at || (bookActivity().get(b.id) || {}).first || '';
+}
+function bookEnd(b){
+  if(b.finished_at) return b.finished_at;
+  return b.status === 'complete' ? ((bookActivity().get(b.id) || {}).last || '') : '';
+}
+
+// سطر: تاريخ البداية + الانتهاء (أو آخر دراسة) + مدة الانقطاع
 function bookTimeHtml(b){
   const a = bookActivity().get(b.id);
-  if(!a) return '<div class="bk-time"><span>لم تُسجَّل جلسة بعد</span></div>';
-  const gap = dayDiff(a.last, toDateStr(new Date()));
-  const showGap = b.status !== 'complete' && gap >= 7;
-  return `<div class="bk-time"><span>${ic('calendar', 12)} بدأتَه ${pfDate(a.first)}</span><span>آخر دراسة ${agoLabel(a.last)}</span>${showGap ? `<span class="gap${gap >= 14 ? ' bad' : ''}">انقطاع ${daysWord(gap)}</span>` : ''}</div>`;
+  const start = bookStart(b), end = bookEnd(b);
+  if(!a && !start && !end) return '<div class="bk-time"><span>لم تُسجَّل جلسة بعد</span></div>';
+  const parts = [];
+  if(start) parts.push(`<span>${ic('calendar', 12)} بدأتَه ${pfDate(start)}</span>`);
+  if(end){
+    parts.push(`<span>أتممتَه ${pfDate(end)}</span>`);
+    if(start && end >= start) parts.push(`<span>استغرق ${daysWord(dayDiff(start, end) + 1)}</span>`);
+  } else if(a){
+    parts.push(`<span>آخر دراسة ${agoLabel(a.last)}</span>`);
+    const gap = dayDiff(a.last, toDateStr(new Date()));
+    if(b.status !== 'complete' && gap >= 7) parts.push(`<span class="gap${gap >= 14 ? ' bad' : ''}">انقطاع ${daysWord(gap)}</span>`);
+  }
+  return `<div class="bk-time">${parts.join('')}</div>`;
 }
 
 /* ============ وضع القراءة والتركيز البصري ============ */
@@ -1943,6 +1963,17 @@ function openBookForm(existing){
           <input id="bkCurrent" value="${attrEscape(b.current_lesson||'')}" placeholder="أي ملاحظة تحب تسجلها">
         </div>
       </div>
+      <div class="row2">
+        <div class="field">
+          <label>تاريخ البداية (اختياري)</label>
+          <input id="bkStart" type="date" value="${attrEscape(b.started_at || '')}">
+        </div>
+        <div class="field">
+          <label>تاريخ الانتهاء (اختياري)</label>
+          <input id="bkEnd" type="date" value="${attrEscape(b.finished_at || '')}">
+        </div>
+      </div>
+      <div class="hint" style="margin:-6px 0 14px">اتركهما فارغين ليُحسبا تلقائيًا من جلساتك: البداية من أول جلسة، والانتهاء من آخر جلسة عند ختم الكتاب.</div>
       <div style="display:flex;gap:10px">
         <button class="primary" onclick="saveBook()">حفظ</button>
         <button class="ghost" onclick="cancelBookForm()">إلغاء</button>
@@ -1997,6 +2028,8 @@ function changeBookKind(newKind){
     kind: newKind,
     status: document.getElementById('bkStatus').value,
     current_lesson: document.getElementById('bkCurrent').value,
+    started_at: document.getElementById('bkStart') ? document.getElementById('bkStart').value : '',
+    finished_at: document.getElementById('bkEnd') ? document.getElementById('bkEnd').value : '',
     total_lessons: 0, completed_lessons: 0, total_pages: 0, completed_pages: 0, volumes: 1
   };
   openBookForm(draft);
@@ -2039,13 +2072,26 @@ async function saveBook(){
     payload.completed_pages = 0;
     payload.volumes = 1;
   }
+  const sv = document.getElementById('bkStart').value;
+  const fv = document.getElementById('bkEnd').value;
+  if(sv && fv && fv < sv){ alert('تاريخ الانتهاء قبل تاريخ البداية'); return; }
+  const existingBook = id ? booksCache.find(x => x.id === id) : null;
+  if(sv || fv || (existingBook && ('started_at' in existingBook || 'finished_at' in existingBook))){
+    payload.started_at = sv || null;
+    payload.finished_at = fv || null;
+  }
   let error;
   if(id){
     ({error} = await sb.from('books').update(payload).eq('id', id));
   } else {
     ({error} = await sb.from('books').insert(payload));
   }
-  if(error){ alert('صار خطأ: '+error.message); return; }
+  if(error){
+    if(/started_at|finished_at/.test(error.message || '')){
+      alert('لحفظ تاريخ البداية والنهاية أضف العمودين مرة واحدة في Supabase (SQL Editor):\n\nalter table books add column if not exists started_at date;\nalter table books add column if not exists finished_at date;\nnotify pgrst, \'reload schema\';');
+    } else alert('صار خطأ: '+error.message);
+    return;
+  }
   document.getElementById('bookFormWrap').innerHTML = '';
   editingBookId = null;
   await loadBooks();
@@ -3210,6 +3256,8 @@ function studiedBooks(entries){
 }
 
 async function openProfile(){
+  // كل مرة تفتح فيها الحساب تبدأ الأقسام كلها مطويّة
+  pfState.edit = pfState.badges = pfState.stats = pfState.year = pfState.journey = pfState.locked = false;
   await Promise.all([refreshBooksCache(), loadEntries()]);
   const {data:{session}} = await sb.auth.getSession();
   accountCreatedAt = session?.user?.created_at || null;
@@ -3256,7 +3304,7 @@ async function uploadAvatar(input){
 
 /* ============ صفحة الحساب: أوسمة وإحصائيات قابلة للطي ============ */
 
-const pfState = {edit:false, badges:true, stats:true, year:false, journey:false, jdesc:false, locked:false, years:{}};
+const pfState = {edit:false, badges:false, stats:false, year:false, journey:false, jdesc:false, locked:false, years:{}};
 
 function pfToggle(key){
   pfState[key] = !pfState[key];
@@ -3392,7 +3440,7 @@ function pfBuildBadges(entries, books, st){
     if(e.book_id && e.entry_date && (!lastEntry.has(e.book_id) || e.entry_date > lastEntry.get(e.book_id))) lastEntry.set(e.book_id, e.entry_date);
   });
   const doneItems = books.filter(b => b.status === 'complete')
-    .map(b => ({date:lastEntry.get(b.id) || latest, n:1}))
+    .map(b => ({date:bookEnd(b) || lastEntry.get(b.id) || latest, n:1}))
     .sort((a,b) => a.date.localeCompare(b.date));
   add('books',
     [[1,'ختمة أولى',ic('book',26)],[3,'ثلاثة كتب',ic('book',26)],[5,'خمسة كتب',ic('book',26)],[10,'عشرة كتب',ic('book',26)]],
@@ -3464,8 +3512,8 @@ function pfYearBody(entries, books, Y, years){
   });
 
   const act = bookActivity();
-  const started = books.filter(b => (act.get(b.id) || {first:''}).first.startsWith(Y)).length;
-  const finished = books.filter(b => b.status === 'complete' && (act.get(b.id) || {last:''}).last.startsWith(Y)).length;
+  const started = books.filter(b => bookStart(b).startsWith(Y)).length;
+  const finished = books.filter(b => bookEnd(b).startsWith(Y)).length;
 
   const months = Array(12).fill(0);
   tark.forEach(e => { months[+e.entry_date.slice(5,7) - 1] += fm(e); });
@@ -3515,11 +3563,11 @@ function pfJourneySection(entries, books, badges){
     evs.push({d:all[0], icon:'flag', t:'بداية الرحلة', s:'أول قيد سجّلته', strong:true});
     const act = bookActivity();
     books.forEach(b => {
-      const a = act.get(b.id);
-      if(!a) return;
+      const st = bookStart(b), en = bookEnd(b);
+      if(!st) return;
       const sn = (b.subjects && b.subjects.name) || '';
-      evs.push({d:a.first, icon:'book', t:`بدأتَ دراسة «${escapeHtml(b.name)}»`, s:sn});
-      if(b.status === 'complete') evs.push({d:a.last, icon:'check', t:`أتممتَ «${escapeHtml(b.name)}»`, s:sn, strong:true});
+      evs.push({d:st, icon:'book', t:`بدأتَ دراسة «${escapeHtml(b.name)}»`, s:sn});
+      if(en) evs.push({d:en, icon:'check', t:`أتممتَ «${escapeHtml(b.name)}»`, s:sn, strong:true});
     });
     badges.filter(x => x.earned && x.date).forEach(x => evs.push({d:x.date, icon:'trophy', t:`نلتَ ${x.title}`, s:'', strong:true}));
     const days = [...new Set(all)];
