@@ -454,6 +454,105 @@
   .focus-ring-wrap[data-phase="short"] .fg,.focus-ring-wrap[data-phase="long"] .fg{stroke:var(--green-deep);filter:none;}
   .focus-ring-wrap .focus-display{position:absolute;inset:0;display:grid;place-items:center;margin:0;font-size:2.9rem;}
 
+  /* ===== توحيد الخطوط والألوان والأيقونات + تأثيرات تفاعلية ===== */
+  :root{--r-sm:8px;--r-md:12px;--r-lg:16px;--shadow:0 6px 18px rgba(0,0,0,.18);--accent:var(--gold);}
+  button,input,select,textarea{font-family:inherit;}
+  .ic{vertical-align:-3px;flex:none;}
+  .entry-box,.day-entry,.path-card,.goal-card,.book-stat,.monthly-summary,.monthly-summary-card,.backup-box,.setup-screen,.stats-row,.focus-banner{border-radius:var(--r-md);}
+  .stats-row{overflow:hidden;}
+  .field textarea,.field input,.field select,#tagSearch{border-radius:var(--r-sm);}
+  button.primary,button.ghost{border-radius:999px;}
+  button.primary{padding:10px 26px;}
+  .tag-choices button{border-radius:999px;}
+  button{transition:transform .15s,box-shadow .2s,background-color .2s,border-color .2s,color .2s;-webkit-tap-highlight-color:transparent;}
+  button:not(:disabled):active{transform:scale(.97);}
+  button.primary{position:relative;overflow:hidden;}
+  .ripple{position:absolute;border-radius:50%;background:currentColor;opacity:.28;transform:scale(0);animation:rip .6s ease-out forwards;pointer-events:none;}
+  @keyframes rip{to{transform:scale(1);opacity:0;}}
+  .day-entry,.path-card,.book-stat,.pf-stat,.pf-badge,.goal-card,.yr-cell{transition:transform .2s,box-shadow .2s,border-color .2s;}
+  @media (hover:hover){
+    button.primary:hover{box-shadow:0 4px 14px rgba(0,0,0,.25);transform:translateY(-1px);}
+    .day-entry:hover,.path-card:hover,.book-stat:hover,.pf-stat:hover,.pf-badge:hover,.goal-card:hover,.yr-cell:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
+  }
+  .day-entry{animation:cardIn .35s ease backwards;}
+  @keyframes cardIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  header.top{position:relative;}
+  body.calm *{animation:none !important;transition:none !important;}
+  body.comfy .wrap{max-width:720px;}
+  body.comfy .day-entry p,body.comfy .monthly-summary-content > div,body.comfy .tr-book-cur{line-height:2.15;font-size:1rem;}
+
+  .pop-menu{position:absolute;top:100%;left:0;margin-top:8px;z-index:40;width:250px;background:var(--paper-dark);border:1px solid var(--rule);border-radius:var(--r-md);padding:14px;box-shadow:var(--shadow);}
+  .pop-menu[hidden]{display:none;}
+  .pm-title{font-size:.78rem;color:var(--ink-soft);margin:0 0 6px;}
+  .pop-menu .focus-check{margin:12px 0 0;}
+  .draft-ind{margin-inline-start:auto;font-family:'Tajawal',sans-serif;font-size:.72rem;color:var(--green-deep);opacity:0;transition:opacity .3s;}
+  .draft-ind.show{opacity:1;}
+  .fold-head .draft-ind + .fold-chev{margin-inline-start:0;}
+
+  .bk-time{display:flex;flex-wrap:wrap;gap:3px 10px;font-size:.7rem;color:var(--ink-soft);margin-top:4px;}
+  .bk-time .gap{color:var(--gold);}
+  .bk-time .gap.bad{color:var(--red);}
+  .tr-book .bk-time{color:#8a8a8a;}
+  .tr-book .bk-time .gap{color:var(--gold);}
+  .tr-book .bk-time .gap.bad{color:#d9826e;}
+  .tr-bgrip{cursor:grab;touch-action:none;color:#666;padding:2px 2px 2px 6px;line-height:0;-webkit-user-select:none;user-select:none;}
+  .tr-bgrip:hover{color:#bbb;}
+  .tr-book{transition:transform .18s;}
+  .tr-book.bk-dragging{transition:none;z-index:6;box-shadow:0 8px 20px rgba(0,0,0,.6);border-right-color:#e6e6e6;}
+
+  .chart{position:relative;margin:8px 0 4px;}
+  .chart svg{width:100%;height:auto;display:block;direction:ltr;overflow:visible;}
+  .chart .grid{stroke:var(--rule);stroke-width:1;}
+  .chart text{fill:var(--ink-soft);font-size:9px;font-family:'Tajawal',sans-serif;}
+  .chart .goal{stroke:var(--gold);stroke-width:1.2;stroke-dasharray:4 3;}
+  .chart .goal-t{fill:var(--gold);}
+  .chart .cb{fill:var(--green);opacity:.8;transform-box:fill-box;transform-origin:50% 100%;animation:barUp .6s ease backwards;animation-delay:calc(var(--i,0) * 22ms);}
+  .chart .cb.met{fill:var(--gold);opacity:1;}
+  .chart .cb.today{stroke:var(--ink);stroke-width:1;}
+  .chart .hit{fill:transparent;cursor:pointer;}
+  .chart g.sel .cb{opacity:1;}
+  .chart .val{fill:var(--ink);font-size:9px;}
+  @keyframes barUp{from{transform:scaleY(0);}}
+  .chart-tip{min-height:1.4em;text-align:center;font-size:.78rem;color:var(--ink-soft);margin-top:6px;}
+
+  .yr-years{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+  .yr-years button{padding:4px 14px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--ink-soft);cursor:pointer;font-size:.8rem;}
+  .yr-years button.active{background:var(--green-deep);color:var(--paper);border-color:var(--green-deep);}
+  .yr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+  .yr-cell{background:var(--paper);border-radius:var(--r-sm);padding:10px 12px;}
+  .yr-cell b{display:block;font-family:'Aref Ruqaa',serif;font-size:1.35rem;color:var(--green-deep);}
+  .yr-cell span{font-size:.74rem;color:var(--ink-soft);}
+  .yr-h{font-family:'Aref Ruqaa',serif;font-size:1.05rem;color:var(--ink);margin:16px 0 4px;}
+  .yr-bars{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+  .yr-bar-row{font-size:.8rem;}
+  .yr-bar-row .t{display:flex;justify-content:space-between;color:var(--ink);margin-bottom:3px;}
+  .yr-bar-row .t small{color:var(--ink-soft);}
+  .yr-bar{height:5px;background:var(--paper);border-radius:3px;overflow:hidden;}
+  .yr-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--green-deep));border-radius:3px;}
+  .yr-note{font-size:.8rem;color:var(--ink-soft);margin-top:10px;line-height:1.8;}
+
+  .jr-head{font-size:.85rem;color:var(--ink-soft);line-height:1.9;margin-bottom:8px;}
+  .jr-tools{display:flex;justify-content:flex-end;margin-bottom:6px;}
+  .jr-month{font-family:'Aref Ruqaa',serif;font-size:1.02rem;color:var(--gold);margin:16px 0 6px;}
+  .jr-list{position:relative;padding-right:26px;}
+  .jr-list::before{content:"";position:absolute;right:9px;top:4px;bottom:4px;width:2px;background:linear-gradient(var(--rule),var(--ink-soft),var(--rule));opacity:.55;border-radius:2px;}
+  .jr-ev{position:relative;padding:6px 0 10px;}
+  .jr-dot{position:absolute;right:-26px;top:5px;width:20px;height:20px;border-radius:50%;background:var(--paper);border:1px solid var(--ink-soft);display:grid;place-items:center;color:var(--ink-soft);}
+  .jr-ev.strong .jr-dot{border-color:var(--gold);color:var(--gold);background:rgba(212,175,90,.12);}
+  .jr-ev.muted .jr-dot{opacity:.7;}
+  .jr-t{font-size:.88rem;color:var(--ink);line-height:1.5;}
+  .jr-s{font-size:.72rem;color:var(--ink-soft);margin-top:1px;}
+  .jr-now .jr-dot{border-color:var(--green-deep);color:var(--green-deep);}
+
+  body.zen header.top,body.zen .tabs-nav,body.zen #focusView > .timeline-head,body.zen #focusView > .field,body.zen #focusView > .tabs-nav{display:none !important;}
+  body.zen .wrap{padding:0;max-width:none;}
+  body.zen #focusPanel{position:fixed;inset:0;z-index:60;margin:0;border:0;border-radius:0;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
+  body.zen #focusPanel > .field,body.zen #focusPanel > .row2,body.zen #focusPanel > .hint,body.zen #focusPanel .focus-check,body.zen #focusPanel .zen-btn{display:none !important;}
+  body.zen .focus-ring-wrap{width:min(78vw,340px);height:min(78vw,340px);}
+  body.zen .focus-ring-wrap .focus-display{font-size:min(14vw,3.6rem);}
+  .zen-exit{position:fixed;top:14px;left:14px;z-index:70;width:38px;height:38px;border-radius:50%;border:1px solid var(--rule);background:var(--paper-dark);color:var(--ink);cursor:pointer;display:grid;place-items:center;}
+  .zen-btn{text-align:center;margin-top:8px;}
+
   /* ===== صفحة الحساب الجديدة: أوسمة وإحصائيات قابلة للطي ===== */
   .pf-top{display:flex;align-items:center;gap:16px;margin-bottom:14px;}
   .pf-top .avatar{width:88px;height:88px;flex:none;font-size:2.1rem;}
@@ -498,7 +597,7 @@
   .pf-medal{position:relative;width:64px;height:72px;margin:10px auto 8px;display:grid;place-items:center;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:linear-gradient(150deg,var(--gold),var(--green));color:#fff;}
   .pf-medal b{font-family:'Aref Ruqaa',serif;font-size:1.5rem;text-shadow:0 1px 3px rgba(0,0,0,.35);line-height:1;}
   .pf-medal-wrap{position:relative;display:inline-block;}
-  .pf-flame{position:absolute;top:-2px;left:50%;transform:translateX(-50%);font-size:1.15rem;z-index:2;line-height:1;}
+  .pf-flame{color:var(--gold);position:absolute;top:-2px;left:50%;transform:translateX(-50%);font-size:1.15rem;z-index:2;line-height:1;}
   .pf-badge-name{font-size:.82rem;color:var(--ink);line-height:1.4;}
   .pf-badge-date{font-size:.7rem;color:var(--ink-soft);margin-top:4px;}
   .pf-empty{font-size:.85rem;color:var(--ink-soft);padding:6px 0;}
@@ -556,7 +655,7 @@ function applyTheme(){
   document.body.classList.toggle('dark-mode', t === 'dark');
   document.body.classList.toggle('void-mode', t === 'void');
   const btn = document.getElementById('themeToggle');
-  if(btn){ btn.textContent = THEME_ICON[t]; btn.title = 'المظهر: ' + THEME_NAME[t]; }
+  if(btn){ btn.innerHTML = ic({void:'circle', dark:'moon', light:'sun'}[t], 16); btn.title = 'المظهر: ' + THEME_NAME[t]; }
 }
 function toggleTheme(){
   const next = THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length];
@@ -774,9 +873,20 @@ async function renderApp(){
       </div>
       <span style="display:flex;align-items:center;gap:8px">
         <button class="ghost" id="themeToggle" onclick="toggleTheme()" title="تغيير المظهر">⚫</button>
+        <button class="ghost" id="readToggle" onclick="toggleReadMenu(event)" title="القراءة والعرض">${ic('eye', 16)}</button>
         <span id="status-pill">متصل</span>
         <button class="header-avatar" id="headerAvatar" onclick="switchTab('profile')" title="الحساب">👤</button>
       </span>
+      <div id="readMenu" class="pop-menu" hidden>
+        <div class="pm-title">حجم الخط</div>
+        <div class="tag-choices" id="fsChoices">
+          <button data-fs="14" onclick="setFontSize(14)">صغير</button>
+          <button data-fs="16" onclick="setFontSize(16)">متوسط</button>
+          <button data-fs="18" onclick="setFontSize(18)">كبير</button>
+        </div>
+        <label class="focus-check"><input type="checkbox" id="rdComfy" onchange="toggleReadPref('comfy', this.checked)"> قراءة مريحة (سطور أوسع وعمود أضيق)</label>
+        <label class="focus-check"><input type="checkbox" id="rdCalm" onchange="toggleReadPref('calm', this.checked)"> تقليل الحركة</label>
+      </div>
     </header>
 
     <div class="tabs-nav">
@@ -794,8 +904,11 @@ async function renderApp(){
   `;
 
   applyTheme();
+  applyReadPrefs();
   renderDailyView();
+  const savedTimer = readSavedTimer();
   renderFocusView();
+  restoreTimer(savedTimer);
   renderProfileView();
   openProfile();
   const savedTab = localStorage.getItem(LAST_TAB_KEY);
@@ -838,6 +951,7 @@ function switchTab(tab){
   currentTab = tab;
   try{ localStorage.setItem(LAST_TAB_KEY, tab); }catch(e){}
   saveScrollMap();
+  if(document.body.classList.contains('zen')) toggleZen();
   if(tab==='path') currentSubjectId = null;
   const tabs = {daily:['tabDaily','dailyView'], path:['tabPath','pathView'], focus:['tabFocus','focusView'], stats:['tabStats','statsView'], profile:['tabProfile','profileView']};
   Object.entries(tabs).forEach(([k,[btn,view]])=>{
@@ -851,6 +965,197 @@ function switchTab(tab){
   if(tab==='stats') openStats();
   if(tab==='profile') openProfile();
   restoreScroll(tab);
+}
+
+/* ============ مساعدات: أيقونات موحّدة، تواريخ، نشاط الكتب ============ */
+
+const IC = {
+  flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  book:'<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
+  pencil:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  moon:'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  circle:'<circle cx="12" cy="12" r="8" fill="currentColor"/>',
+  umbrella:'<path d="M23 12a11.05 11.05 0 0 0-22 0zm-5 7a3 3 0 0 1-6 0v-7"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  trophy:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-1.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98 1.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2z"/>',
+  star:'<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/>',
+  target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+  eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+  expand:'<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>',
+  grip:'<circle cx="9" cy="6" r="1.2" fill="currentColor"/><circle cx="15" cy="6" r="1.2" fill="currentColor"/><circle cx="9" cy="12" r="1.2" fill="currentColor"/><circle cx="15" cy="12" r="1.2" fill="currentColor"/><circle cx="9" cy="18" r="1.2" fill="currentColor"/><circle cx="15" cy="18" r="1.2" fill="currentColor"/>',
+  close:'<path d="M18 6 6 18M6 6l12 12"/>'
+};
+function ic(name, size){
+  const s = size || 18;
+  return `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[name] || ''}</svg>`;
+}
+
+function dayDiff(a, b){
+  const t = s => Date.UTC(+s.slice(0,4), +s.slice(5,7) - 1, +s.slice(8,10));
+  return Math.round((t(b) - t(a)) / 86400000);
+}
+function daysWord(n){
+  if(n === 1) return 'يوم';
+  if(n === 2) return 'يومان';
+  if(n <= 10) return n + ' أيام';
+  return n + ' يومًا';
+}
+function agoLabel(ds){
+  const d = dayDiff(ds, toDateStr(new Date()));
+  if(d <= 0) return 'اليوم';
+  if(d === 1) return 'أمس';
+  if(d === 2) return 'قبل يومين';
+  if(d <= 10) return `قبل ${d} أيام`;
+  if(d < 30) return `قبل ${d} يومًا`;
+  if(d < 60) return 'قبل شهر';
+  if(d < 365){ const m = Math.round(d / 30); return m === 2 ? 'قبل شهرين' : (m <= 10 ? `قبل ${m} أشهر` : `قبل ${m} شهرًا`); }
+  const y = Math.floor(d / 365);
+  return y === 1 ? 'قبل سنة' : (y === 2 ? 'قبل سنتين' : `قبل ${y} سنوات`);
+}
+
+// نشاط كل كتاب: أول دراسة وآخر دراسة ووقت التركيز (مخزَّن مؤقتًا حتى تتغير البيانات)
+let _bam = {e:null, b:null, map:null};
+function bookActivity(){
+  if(_bam.e === entriesCache && _bam.b === booksCache) return _bam.map;
+  const map = new Map();
+  (entriesCache || []).forEach(e => {
+    const bid = e.book_id || findBookIdFromTags(e.tags);
+    if(!bid || !e.entry_date) return;
+    let a = map.get(bid);
+    if(!a){ a = {first:e.entry_date, last:e.entry_date, minutes:0, sessions:0}; map.set(bid, a); }
+    if(e.entry_date < a.first) a.first = e.entry_date;
+    if(e.entry_date > a.last) a.last = e.entry_date;
+    if(e.type === 'tarkiz'){ a.minutes += Math.max(0, Number(e.focus_minutes) || 0); a.sessions++; }
+  });
+  _bam = {e:entriesCache, b:booksCache, map};
+  return map;
+}
+
+// سطر: تاريخ البداية + آخر دراسة + مدة الانقطاع
+function bookTimeHtml(b){
+  const a = bookActivity().get(b.id);
+  if(!a) return '<div class="bk-time"><span>لم تُسجَّل جلسة بعد</span></div>';
+  const gap = dayDiff(a.last, toDateStr(new Date()));
+  const showGap = b.status !== 'complete' && gap >= 7;
+  return `<div class="bk-time"><span>${ic('calendar', 12)} بدأتَه ${pfDate(a.first)}</span><span>آخر دراسة ${agoLabel(a.last)}</span>${showGap ? `<span class="gap${gap >= 14 ? ' bad' : ''}">انقطاع ${daysWord(gap)}</span>` : ''}</div>`;
+}
+
+/* ============ وضع القراءة والتركيز البصري ============ */
+
+function readPref(k, def){ const v = localStorage.getItem('rihla_' + k); return v === null ? def : v; }
+function applyReadPrefs(){
+  const fs = parseInt(readPref('fs', '16')) || 16;
+  document.documentElement.style.fontSize = fs + 'px';
+  document.body.classList.toggle('comfy', readPref('comfy', '0') === '1');
+  document.body.classList.toggle('calm', readPref('calm', '0') === '1');
+  document.querySelectorAll('#fsChoices button').forEach(b => b.classList.toggle('active', +b.dataset.fs === fs));
+  const c = document.getElementById('rdComfy'); if(c) c.checked = readPref('comfy', '0') === '1';
+  const m = document.getElementById('rdCalm'); if(m) m.checked = readPref('calm', '0') === '1';
+}
+function setFontSize(px){ localStorage.setItem('rihla_fs', String(px)); applyReadPrefs(); }
+function toggleReadPref(k, on){ localStorage.setItem('rihla_' + k, on ? '1' : '0'); applyReadPrefs(); }
+function toggleReadMenu(e){
+  if(e) e.stopPropagation();
+  const m = document.getElementById('readMenu');
+  if(!m) return;
+  m.hidden = !m.hidden;
+  if(!m.hidden) applyReadPrefs();
+}
+document.addEventListener('click', e => {
+  const m = document.getElementById('readMenu');
+  if(m && !m.hidden && !e.target.closest('#readMenu') && !e.target.closest('#readToggle')) m.hidden = true;
+});
+
+// وضع التركيز البصري: شاشة كاملة لا يظهر فيها إلا المؤقت
+function toggleZen(){
+  const on = !document.body.classList.contains('zen');
+  document.body.classList.toggle('zen', on);
+  document.getElementById('zenExit')?.remove();
+  if(on){
+    const b = document.createElement('button');
+    b.id = 'zenExit'; b.className = 'zen-exit'; b.title = 'خروج'; b.innerHTML = ic('close', 16);
+    b.onclick = toggleZen;
+    document.body.appendChild(b);
+    window.scrollTo(0, 0);
+  }
+}
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && document.body.classList.contains('zen')) toggleZen(); });
+
+// تأثير موجة على الأزرار الرئيسية
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest && e.target.closest('button.primary');
+  if(!b || b.disabled) return;
+  const r = b.getBoundingClientRect();
+  const d = Math.max(r.width, r.height) * 2;
+  const s = document.createElement('span');
+  s.className = 'ripple';
+  s.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
+  b.appendChild(s);
+  setTimeout(() => s.remove(), 650);
+});
+
+/* ============ الحفظ التلقائي: مسودة القيد + حقول التركيز + المؤقت الجاري ============ */
+
+const DRAFT_KEY = 'rihla_entry_draft';
+let draftTimer = null;
+function entryDraftSave(){
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => {
+    if(editingEntryId) return;
+    const g = id => document.getElementById(id);
+    if(!g('entryBook')) return;
+    const d = {book:g('entryBook').value, lesson:g('entryLesson').value, minutes:g('entryMinutes').value, review:g('entryReview').checked};
+    try{
+      if(d.book || d.lesson || d.minutes || d.review){
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+        const ind = g('draftInd');
+        if(ind){ ind.innerHTML = ic('check', 12) + ' حُفظت المسودة'; ind.classList.add('show'); setTimeout(() => ind.classList.remove('show'), 1500); }
+      } else localStorage.removeItem(DRAFT_KEY);
+    }catch(e){}
+  }, 400);
+}
+function entryDraftRestore(){
+  try{
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+    if(!d) return;
+    const g = id => document.getElementById(id);
+    if(d.book && [...g('entryBook').options].some(o => o.value === d.book)) g('entryBook').value = d.book;
+    onEntryBookChange();
+    if(d.lesson) g('entryLesson').value = d.lesson;
+    if(d.minutes) g('entryMinutes').value = d.minutes;
+    g('entryReview').checked = !!d.review;
+  }catch(e){}
+}
+function entryDraftClear(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
+
+function persistTimer(){
+  try{
+    if(timerMode === 'stopwatch' || (!timerRunning && timerRemainingMs <= 0)){ localStorage.removeItem('rihla_timer'); return; }
+    localStorage.setItem('rihla_timer', JSON.stringify({mode:timerMode, phase:pomodoroPhase, round:pomodoroRound, total:timerTotalMs, running:timerRunning, endAt:timerEndAt, remaining:timerRemainingMs}));
+  }catch(e){}
+}
+function readSavedTimer(){ try{ return JSON.parse(localStorage.getItem('rihla_timer') || 'null'); }catch(e){ return null; } }
+function restoreTimer(st){
+  if(!st || (st.mode !== 'pomodoro' && st.mode !== 'free')) return;
+  timerMode = st.mode;
+  pomodoroPhase = st.phase || 'work';
+  pomodoroRound = st.round || 1;
+  timerTotalMs = st.total || 0;
+  if(st.running){
+    const left = (st.endAt || 0) - Date.now();
+    timerRemainingMs = Math.max(0, left);
+    renderFocusView();
+    if(left > 0){ runTimer(); showToast('استُؤنفت جلسة التركيز التي كانت جارية'); }
+    else { onTimerComplete(); showToast('انتهت جلسة تركيزك أثناء غيابك'); }
+  } else if(st.remaining > 0){
+    timerRemainingMs = st.remaining;
+    renderFocusView();
+  }
 }
 
 /* ============ الكتب: ذاكرة مؤقتة + ربط بالسجل والتركيز ============ */
@@ -916,6 +1221,7 @@ function renderCurrentBooks(){
       <div class="path-card status-in_progress">
         <div class="cb-row"><div class="sj-name" style="margin-bottom:0">${escapeHtml(b.name)}</div><div class="cb-pct">${p.pct}%</div></div>
         <div class="cb-sub">${escapeHtml(subject)}</div>
+        ${bookTimeHtml(b)}
         <div class="sj-progress-bar" style="margin-bottom:0"><div class="sj-progress-fill" style="width:${p.pct}%"></div></div>
       </div>`;
     }).join('')}</div>` : `<div class="empty" style="padding:26px 20px">لا يوجد كتاب تدرسه الآن. من «الطريق» غيّر حالة كتاب إلى «أدرسه الحين» ليظهر هنا.</div>`}
@@ -1009,7 +1315,7 @@ function renderDailyView(){
     <div id="vacationBar"></div>
     <div id="monthlySummary"></div>
     <div class="entry-box fold${boxCollapsed('entry', false) ? ' collapsed' : ''}" id="box-entry">
-      <button class="fold-head" onclick="toggleBox('entry')"><span>سجل اليوم</span><span class="fold-chev">⌄</span></button>
+      <button class="fold-head" onclick="toggleBox('entry')"><span>سجل اليوم</span><span class="draft-ind" id="draftInd"></span><span class="fold-chev">⌄</span></button>
       <div class="fold-body">
       <div class="row2">
         <div class="field">
@@ -1064,6 +1370,10 @@ function renderDailyView(){
   `;
 
   document.getElementById('dateInput').valueAsDate = new Date();
+  const eb = document.getElementById('box-entry');
+  eb.addEventListener('input', entryDraftSave);
+  eb.addEventListener('change', entryDraftSave);
+  entryDraftRestore();
 
   renderCurrentBooks();
   loadEntries();
@@ -1290,7 +1600,6 @@ function trPanelHtml(s, books, avg){
   const sorted = [...books].sort((a,b) =>
     ((curLevels.has(a.level || 1) ? 0 : 1) - (curLevels.has(b.level || 1) ? 0 : 1)) ||
     ((a.level || 1) - (b.level || 1)) ||
-    ((rank[a.status] ?? 9) - (rank[b.status] ?? 9)) ||
     ((Number(a.sort_order) || 0) - (Number(b.sort_order) || 0)) ||
     String(a.created_at || '').localeCompare(String(b.created_at || '')));
   const byLevel = new Map();
@@ -1311,10 +1620,11 @@ function trBookHtml(b){
   const p = bookProgressPct(b);
   const st = TR_STATUS[b.status] || TR_STATUS.todo;
   const kind = (b.kind || 'matn') === 'book' ? 'كتاب' + ((b.volumes || 1) > 1 ? ' ' + arabicNumeral(b.volumes) + ' مجلدات' : '') : 'متن';
-  return `<div class="tr-book ${st.cls}">
-    <div class="tr-book-top"><span class="tr-dot">${st.ic}</span><span class="tr-book-name">${escapeHtml(b.name)}</span><span class="tr-pct">${p.pct}%</span></div>
+  return `<div class="tr-book ${st.cls}" data-id="${b.id}">
+    <div class="tr-book-top"><span class="tr-dot">${st.ic}</span><span class="tr-book-name">${escapeHtml(b.name)}</span><span class="tr-pct">${p.pct}%</span><span class="tr-bgrip" onpointerdown="bkDragStart(event,'${b.id}')" title="اسحب لإعادة ترتيب الكتب">${ic('grip', 16)}</span></div>
     <div class="tr-book-sub">${STATUS_LABELS[b.status] || ''} · ${kind} · ${p.done}/${p.total} ${p.unit}</div>
-    ${b.current_lesson ? `<div class="tr-book-cur">📝 ${escapeHtml(b.current_lesson)}</div>` : ''}
+    ${bookTimeHtml(b)}
+    ${b.current_lesson ? `<div class="tr-book-cur">${ic('pencil', 12)} ${escapeHtml(b.current_lesson)}</div>` : ''}
     <div class="tr-bar"><i style="width:${p.pct}%"></i></div>
     <div class="tr-actions"><button onclick="quickProgress('${b.id}')">＋ سجّل تقدّمي</button><button onclick="trEditBook('${b.id}')">تعديل</button><button onclick="deleteBook('${b.id}')">حذف</button></div>
   </div>`;
@@ -1348,7 +1658,7 @@ function trEditBook(id){
 /* ---- سحب الأغصان لإعادة الترتيب (ضغط مطوّل ثم سحب) ---- */
 
 let trDrag = null, trSuppressClick = false;
-document.addEventListener('touchmove', e => { if(trDrag && e.cancelable) e.preventDefault(); }, {passive:false});
+document.addEventListener('touchmove', e => { if((trDrag || bkDrag) && e.cancelable) e.preventDefault(); }, {passive:false});
 
 function trPressStart(e, id){
   if(e.button !== undefined && e.button !== 0) return;
@@ -1451,6 +1761,85 @@ async function trSaveOrder(){
   else showToast('تم حفظ ترتيب الأغصان ✓');
 }
 
+
+/* ---- ترتيب الكتب بالسحب والإفلات (داخل المستوى نفسه) ---- */
+
+let bkDrag = null;
+
+function bkDragStart(e, id){
+  e.preventDefault();
+  e.stopPropagation();
+  const el = e.currentTarget.closest('.tr-book');
+  const lvl = el && el.closest('.tr-level');
+  if(!el || !lvl) return;
+  const items = [...lvl.querySelectorAll('.tr-book')];
+  if(items.length < 2){ showToast('أضف كتابًا آخر في هذا المستوى لتتمكن من الترتيب'); return; }
+  const idx = items.indexOf(el);
+  bkDrag = {idx, cur: idx, el, items, ids: items.map(x => x.dataset.id), rects: items.map(x => ({top: x.offsetTop, h: x.offsetHeight})), startY: e.clientY, y: e.clientY, startScroll: window.scrollY, raf: 0};
+  el.classList.add('bk-dragging');
+  if(navigator.vibrate) navigator.vibrate(12);
+  window.addEventListener('pointermove', bkDragMove);
+  window.addEventListener('pointerup', bkDragEnd);
+  window.addEventListener('pointercancel', bkDragEnd);
+  bkDrag.raf = requestAnimationFrame(bkDragLoop);
+}
+
+function bkDragMove(e){ if(bkDrag) bkDrag.y = e.clientY; }
+
+function bkDragLoop(){
+  const d = bkDrag;
+  if(!d) return;
+  if(d.y < 90) window.scrollBy(0, -10);
+  else if(d.y > window.innerHeight - 90) window.scrollBy(0, 10);
+  const dy = (d.y - d.startY) + (window.scrollY - d.startScroll);
+  const h0 = d.rects[d.idx].h + 9;
+  d.el.style.transform = `translateY(${dy}px)`;
+  const center = d.rects[d.idx].top + d.rects[d.idx].h / 2 + dy;
+  let ni = d.idx;
+  d.rects.forEach((r, k) => {
+    if(k === d.idx) return;
+    const c = r.top + r.h / 2;
+    if(k < d.idx && center < c) ni = Math.min(ni, k);
+    if(k > d.idx && center > c) ni = Math.max(ni, k);
+  });
+  d.items.forEach((it, k) => {
+    if(k === d.idx) return;
+    let sh = 0;
+    if(ni > d.idx && k > d.idx && k <= ni) sh = -h0;
+    else if(ni < d.idx && k >= ni && k < d.idx) sh = h0;
+    it.style.transform = sh ? `translateY(${sh}px)` : '';
+  });
+  d.cur = ni;
+  d.raf = requestAnimationFrame(bkDragLoop);
+}
+
+async function bkDragEnd(){
+  const d = bkDrag;
+  if(!d) return;
+  cancelAnimationFrame(d.raf);
+  window.removeEventListener('pointermove', bkDragMove);
+  window.removeEventListener('pointerup', bkDragEnd);
+  window.removeEventListener('pointercancel', bkDragEnd);
+  bkDrag = null;
+  d.items.forEach(it => { it.style.transform = ''; });
+  d.el.classList.remove('bk-dragging');
+  if(d.cur === d.idx) return;
+  const ids = [...d.ids];
+  const [m] = ids.splice(d.idx, 1);
+  ids.splice(d.cur, 0, m);
+  const jobs = [];
+  ids.forEach((id, i) => {
+    const b = booksCache.find(x => x.id === id);
+    const so = (i + 1) * 10;
+    if(b && b.sort_order !== so){ b.sort_order = so; jobs.push(sb.from('books').update({sort_order: so}).eq('id', id)); }
+  });
+  trDraw();
+  if(!jobs.length) return;
+  const res = await Promise.all(jobs);
+  const bad = res.find(r => r.error);
+  if(bad) showToast('تعذّر حفظ ترتيب الكتب: ' + bad.error.message, 'warn');
+  else showToast('تم حفظ ترتيب الكتب ✓');
+}
 
 async function ensurePresetSubjects(){
   const {data:existing, error} = await sb.from('subjects').select('id,name');
@@ -1702,8 +2091,8 @@ let stopwatchStartRef = null;
 let stopwatchElapsedMs = 0;
 const BASE_TITLE = document.title;
 let focusBookId = localStorage.getItem('rihla_focus_book') || '';
-let focusLessonNo = '';
-let focusTagVal = '';
+let focusLessonNo = localStorage.getItem('rihla_focus_lesson') || '';
+let focusTagVal = localStorage.getItem('rihla_focus_tag') || '';
 let pmCfg = {work:25, short:5, long:15, rounds:4, free:20};
 try { Object.assign(pmCfg, JSON.parse(localStorage.getItem('rihla_pm') || '{}')); } catch(e) {}
 
@@ -1730,11 +2119,11 @@ function focusLinkHtml(){
     <div class="row2">
       <div class="field">
         <label>الوسم أو الملاحظة (اختياري)</label>
-        <input id="focusTag" value="${attrEscape(focusTagVal)}" placeholder="مثل: مراجعة، حفظ" oninput="focusTagVal=this.value;updateFocusTarget()">
+        <input id="focusTag" value="${attrEscape(focusTagVal)}" placeholder="مثل: مراجعة، حفظ" oninput="focusTagVal=this.value;localStorage.setItem('rihla_focus_tag',this.value);updateFocusTarget()">
       </div>
       <div class="field">
         <label id="focusLessonLabel">${unit === 'صفحة' ? 'رقم الصفحة' : 'رقم الدرس'}</label>
-        <input id="focusLesson" type="text" inputmode="numeric" value="${attrEscape(focusLessonNo)}" ${b ? '' : 'disabled'} placeholder="${b ? 'مثل: ' + (done + 1) : 'اختر كتابًا أولاً'}" oninput="focusLessonNo=this.value;updateFocusTarget()">
+        <input id="focusLesson" type="text" inputmode="numeric" value="${attrEscape(focusLessonNo)}" ${b ? '' : 'disabled'} placeholder="${b ? 'مثل: ' + (done + 1) : 'اختر كتابًا أولاً'}" oninput="focusLessonNo=this.value;localStorage.setItem('rihla_focus_lesson',this.value);updateFocusTarget()">
       </div>
     </div>
     <div class="hint" id="focusLessonHint" style="margin:-6px 0 14px">${b ? `وصلتَ حاليًا إلى ${unit} ${done}. يُسجَّل الإنجاز عند انتهاء الجلسة. اكتب «مراجعة» في الوسم إن كانت مراجعة، فلا تُحسب درسًا جديدًا.` : ''}</div>`;
@@ -1743,6 +2132,7 @@ function focusLinkHtml(){
 function onFocusBookChange(id){
   focusBookId = id;
   focusLessonNo = '';
+  localStorage.removeItem('rihla_focus_lesson');
   localStorage.setItem('rihla_focus_book', id);
   updateFocusLinkUi();
 }
@@ -1848,6 +2238,7 @@ function renderFocusPanel(){
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
       <div class="hint" id="wakeHint" style="text-align:center;margin-top:10px"></div>
+      <div class="zen-btn"><button class="ghost" onclick="toggleZen()">${ic('expand', 14)} وضع التركيز</button></div>
     `;
   } else if(timerMode === 'free'){
     panel.innerHTML = `
@@ -1861,6 +2252,7 @@ function renderFocusPanel(){
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
       <div class="hint" id="wakeHint" style="text-align:center;margin-top:10px"></div>
+      <div class="zen-btn"><button class="ghost" onclick="toggleZen()">${ic('expand', 14)} وضع التركيز</button></div>
     `;
   } else {
     panel.innerHTML = `
@@ -1871,6 +2263,7 @@ function renderFocusPanel(){
       <div class="focus-controls" id="focusControls"></div>
       <div id="focusBanner"></div>
       <div class="hint" id="wakeHint" style="text-align:center;margin-top:10px"></div>
+      <div class="zen-btn"><button class="ghost" onclick="toggleZen()">${ic('expand', 14)} وضع التركيز</button></div>
     `;
   }
   panel.insertAdjacentHTML('afterbegin', focusLinkHtml());
@@ -1914,7 +2307,7 @@ function releaseWake(){
 }
 function updateWakeHint(){
   const h = document.getElementById('wakeHint');
-  if(h) h.textContent = (wakeLock && (timerRunning || stopwatchRunning)) ? '☀ الشاشة تبقى مضاءة أثناء الجلسة' : '';
+  if(h) h.innerHTML = (wakeLock && (timerRunning || stopwatchRunning)) ? ic('sun', 13) + ' الشاشة تبقى مضاءة أثناء الجلسة' : '';
 }
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible' && (timerRunning || stopwatchRunning)) acquireWake();
@@ -1922,6 +2315,7 @@ document.addEventListener('visibilitychange', () => {
 
 function renderFocusControls(){
   if(timerRunning || stopwatchRunning) acquireWake(); else releaseWake();
+  persistTimer();
   const el = document.getElementById('focusControls');
   if(!el) return;
   if(timerMode === 'stopwatch'){
@@ -2332,6 +2726,7 @@ async function addEntry(){
   const {error} = await saveEntryRow(payload, editingEntryId);
   if(error){ alert('صار خطأ: '+error.message); return; }
   if(!review) await recordProgress(book, lessonNo);
+  entryDraftClear();
   cancelEditEntry();
   await loadEntries();
 }
@@ -2747,7 +3142,7 @@ function renderVacationBar(){
   const fmt = ds => new Date(ds + 'T00:00:00').toLocaleDateString('ar-u-nu-latn-ca-gregory', {day:'numeric', month:'short'});
   el.innerHTML = `
     <div class="vac-bar">
-      <button class="vac-pill${isVac ? ' on' : ''}" onclick="toggleVacationToday()" title="يوم الإجازة لا يكسر سلسلة المداومة ولا يُحتسب فيها">🏖 ${isVac ? 'اليوم إجازة ✓' : 'اليوم إجازة'}</button>
+      <button class="vac-pill${isVac ? ' on' : ''}" onclick="toggleVacationToday()" title="يوم الإجازة لا يكسر سلسلة المداومة ولا يُحتسب فيها">${ic('umbrella', 14)} ${isVac ? 'اليوم إجازة ✓' : 'اليوم إجازة'}</button>
       <button class="vac-link" onclick="vacOpen=!vacOpen;renderVacationBar()">${vacOpen ? 'إغلاق' : 'جدولة أيام'}</button>
       ${ranges.map(r => `<span class="vac-chip" title="اضغط لإلغاء هذه الإجازة" onclick="removeVacationRange('${r.from}','${r.to}')">${fmt(r.from)}${r.to !== r.from ? ' ← ' + fmt(r.to) : ''} ✕</span>`).join('')}
     </div>
@@ -2861,7 +3256,7 @@ async function uploadAvatar(input){
 
 /* ============ صفحة الحساب: أوسمة وإحصائيات قابلة للطي ============ */
 
-const pfState = {edit:false, badges:true, stats:true, locked:false, years:{}};
+const pfState = {edit:false, badges:true, stats:true, year:false, journey:false, jdesc:false, locked:false, years:{}};
 
 function pfToggle(key){
   pfState[key] = !pfState[key];
@@ -2968,25 +3363,25 @@ function pfBuildBadges(entries, books, st){
     (c,t) => `${Math.min(c,t)}/${t} يوم`);
 
   add('focus',
-    [[60,'ساعة صفاء','⏱'],[600,'عشر ساعات تركيز','⏳'],[3000,'خمسون ساعة','🏆'],[6000,'مئة ساعة','👑']],
+    [[60,'ساعة صفاء',ic('clock',26)],[600,'عشر ساعات تركيز',ic('clock',26)],[3000,'خمسون ساعة',ic('trophy',26)],[6000,'مئة ساعة',ic('star',26)]],
     st.focusMinutes,
     pfCumulative(tark.map(e => ({date:e.entry_date, n:Math.max(0, Number(e.focus_minutes) || 0)})), [60,600,3000,6000]),
     (c,t) => `${Math.floor(Math.min(c,t)/60)}/${t/60} ساعة`);
 
   add('sessions',
-    [[1,'أولى الجلسات','🎯'],[10,'عشر جلسات','🎯'],[50,'خمسون جلسة','🎯']],
+    [[1,'أولى الجلسات',ic('target',26)],[10,'عشر جلسات',ic('target',26)],[50,'خمسون جلسة',ic('target',26)]],
     st.sessions,
     pfCumulative(tark.map(e => ({date:e.entry_date, n:1})), [1,10,50]),
     (c,t) => `${Math.min(c,t)}/${t} جلسة`);
 
   add('lessons',
-    [[10,'عشرة دروس','📝'],[50,'خمسون درسًا','📝'],[100,'مئة درس','📝'],[250,'مئتان وخمسون درسًا','📝']],
+    [[10,'عشرة دروس',ic('pencil',26)],[50,'خمسون درسًا',ic('pencil',26)],[100,'مئة درس',ic('pencil',26)],[250,'مئتان وخمسون درسًا',ic('pencil',26)]],
     st.lessons,
     pfCumulative(pfUnitItems(entries, books, false), [10,50,100,250]),
     (c,t) => `${Math.min(c,t)}/${t} درس`);
 
   add('pages',
-    [[100,'مئة صفحة','📄'],[500,'خمسمئة صفحة','📄'],[1000,'ألف صفحة','📄'],[5000,'خمسة آلاف صفحة','📄']],
+    [[100,'مئة صفحة',ic('file',26)],[500,'خمسمئة صفحة',ic('file',26)],[1000,'ألف صفحة',ic('file',26)],[5000,'خمسة آلاف صفحة',ic('file',26)]],
     st.pages,
     pfCumulative(pfUnitItems(entries, books, true), [100,500,1000,5000]),
     (c,t) => `${Math.min(c,t)}/${t} صفحة`);
@@ -3000,7 +3395,7 @@ function pfBuildBadges(entries, books, st){
     .map(b => ({date:lastEntry.get(b.id) || latest, n:1}))
     .sort((a,b) => a.date.localeCompare(b.date));
   add('books',
-    [[1,'ختمة أولى','📚'],[3,'ثلاثة كتب','📚'],[5,'خمسة كتب','📚'],[10,'عشرة كتب','📚']],
+    [[1,'ختمة أولى',ic('book',26)],[3,'ثلاثة كتب',ic('book',26)],[5,'خمسة كتب',ic('book',26)],[10,'عشرة كتب',ic('book',26)]],
     st.booksRead,
     pfCumulative(doneItems, [1,3,5,10]),
     (c,t) => `${Math.min(c,t)}/${t} كتب`);
@@ -3010,7 +3405,7 @@ function pfBuildBadges(entries, books, st){
 
 function pfBadgeHtml(b){
   return `<div class="pf-badge ${b.earned ? 'earned' : 'locked'}">
-    <div class="pf-medal-wrap">${b.flame ? '<span class="pf-flame">🔥</span>' : ''}<div class="pf-medal"><b>${b.content}</b></div></div>
+    <div class="pf-medal-wrap">${b.flame ? `<span class="pf-flame">${ic('flame', 16)}</span>` : ''}<div class="pf-medal"><b>${b.content}</b></div></div>
     <div class="pf-badge-name">${b.title}</div>
     <div class="pf-badge-date">${b.earned ? pfDate(b.date) : b.progress}</div>
   </div>`;
@@ -3018,6 +3413,140 @@ function pfBadgeHtml(b){
 
 function pfStatRow(icon, label, valueHtml, sub){
   return `<div class="pf-stat"><div class="pf-stat-ic">${icon}</div><div class="pf-stat-tx"><div class="pf-stat-lbl">${label}</div>${sub ? `<div class="pf-stat-sub">${sub}</div>` : ''}</div><div class="pf-stat-val">${valueHtml}</div></div>`;
+}
+
+/* ============ ملخص السنة + الخط الزمني للرحلة (في الحساب) ============ */
+
+const PF_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const PF_MONTHS_SHORT = ['ينا','فبر','مار','أبر','ماي','يون','يول','أغس','سبت','أكت','نوف','ديس'];
+let pfYear = null;
+function pfSetYear(y){ pfYear = y; renderProfileView(); }
+function pfSetJourneyOrder(desc){ pfState.jdesc = !!desc; renderProfileView(); }
+
+function pfYearSection(entries, books){
+  const years = [...new Set(entries.map(e => (e.entry_date || '').slice(0,4)).filter(Boolean))].sort().reverse();
+  let body;
+  if(!years.length){
+    body = '<div class="pf-empty">لا توجد قيود بعد لعرض ملخص السنة.</div>';
+  } else {
+    const cy = String(new Date().getFullYear());
+    const Y = years.includes(pfYear) ? pfYear : (years.includes(cy) ? cy : years[0]);
+    body = pfYearBody(entries, books, Y, years);
+  }
+  return `<div class="pf-sec${pfState.year ? ' open' : ''}" id="pf-year">
+    <button class="pf-sec-head" onclick="pfToggle('year')"><span>ملخص السنة</span><span class="pf-chev">⌄</span></button>
+    <div class="pf-body">${body}</div></div>`;
+}
+
+function pfYearBody(entries, books, Y, years){
+  const ye = entries.filter(e => (e.entry_date || '').startsWith(Y));
+  const tark = ye.filter(e => e.type === 'tarkiz');
+  const fm = e => Math.max(0, Number(e.focus_minutes) || 0);
+  const mins = tark.reduce((s,e) => s + fm(e), 0);
+  const activeDays = new Set(ye.map(e => e.entry_date)).size;
+  const bestStreak = pfLongestStreak(ye.map(e => e.entry_date)).best;
+
+  // ما تقدّمتَ به هذه السنة: أعلى درس/صفحة بلغتها هذه السنة مطروحًا منه ما قبلها
+  const isPages = new Map(books.map(b => [b.id, lessonUnit(b) === 'صفحة']));
+  const mx = new Map();
+  entries.forEach(e => {
+    if(!e.book_id || !e.lesson_number || isReviewEntry(e) || !e.entry_date) return;
+    const m = mx.get(e.book_id) || {before:0, inYear:0};
+    if(e.entry_date < Y + '-01-01') m.before = Math.max(m.before, e.lesson_number);
+    else if(e.entry_date.startsWith(Y)) m.inYear = Math.max(m.inYear, e.lesson_number);
+    mx.set(e.book_id, m);
+  });
+  let lessons = 0, pages = 0;
+  mx.forEach((m, id) => {
+    if(!m.inYear) return;
+    const g = Math.max(0, m.inYear - m.before);
+    if(isPages.get(id)) pages += g; else lessons += g;
+  });
+
+  const act = bookActivity();
+  const started = books.filter(b => (act.get(b.id) || {first:''}).first.startsWith(Y)).length;
+  const finished = books.filter(b => b.status === 'complete' && (act.get(b.id) || {last:''}).last.startsWith(Y)).length;
+
+  const months = Array(12).fill(0);
+  tark.forEach(e => { months[+e.entry_date.slice(5,7) - 1] += fm(e); });
+  const bookById = new Map(books.map(b => [b.id, b]));
+  const subj = new Map(), bk = new Map();
+  tark.forEach(e => {
+    const b = bookById.get(e.book_id || findBookIdFromTags(e.tags));
+    if(!b) return;
+    const sn = (b.subjects && b.subjects.name) || 'أخرى';
+    subj.set(sn, (subj.get(sn) || 0) + fm(e));
+    bk.set(b.name, (bk.get(b.name) || 0) + fm(e));
+  });
+  const top = (map, n) => [...map.entries()].sort((a,b) => b[1] - a[1]).slice(0, n);
+  const topS = top(subj, 4), topB = top(bk, 3);
+  const maxS = topS.length ? topS[0][1] : 1;
+  const bestM = months.indexOf(Math.max(...months));
+  const cell = (v, l) => `<div class="yr-cell"><b>${v}</b><span>${l}</span></div>`;
+  const hoursVals = months.map(m => Math.round(m / 60 * 10) / 10);
+
+  return `
+    <div class="yr-years">${years.map(y => `<button class="${y === Y ? 'active' : ''}" onclick="pfSetYear('${y}')">${y}</button>`).join('')}</div>
+    <div class="yr-grid">
+      ${cell(focusHoursLabel(mins), 'وقت التركيز')}
+      ${cell(tark.length, 'جلسة تركيز')}
+      ${cell(activeDays, 'يوم دراسة')}
+      ${cell(bestStreak, 'أطول مداومة (يوم)')}
+      ${cell(lessons, 'درسًا تقدّمتَ فيها')}
+      ${cell(pages, 'صفحة تقدّمتَ فيها')}
+      ${cell(started, 'كتب بدأتَها')}
+      ${cell(finished, 'كتب أتممتَها')}
+    </div>
+    <div class="yr-h">التركيز شهريًا (بالساعات)</div>
+    ${svgBarChart({values: hoursVals, labels: PF_MONTHS_SHORT, tips: hoursVals.map((v, i) => `${PF_MONTHS[i]} ${Y}: ${focusHoursLabel(months[i])}`), goal: 0, todayIdx: (String(new Date().getFullYear()) === Y ? new Date().getMonth() : -1)})}
+    ${mins ? `<div class="yr-note">أنشط شهر لك: <b>${PF_MONTHS[bestM]}</b> بـ ${focusHoursLabel(months[bestM])}.</div>` : ''}
+    ${topS.length ? `<div class="yr-h">أكثر العلوم دراسةً</div><div class="yr-bars">${topS.map(([n, m]) => `<div class="yr-bar-row"><div class="t"><span>${escapeHtml(n)}</span><small>${focusHoursLabel(m)}</small></div><div class="yr-bar"><i style="width:${Math.round(m / maxS * 100)}%"></i></div></div>`).join('')}</div>` : ''}
+    ${topB.length ? `<div class="yr-h">أكثر الكتب وقتًا</div><div class="yr-bars">${topB.map(([n, m]) => `<div class="yr-bar-row"><div class="t"><span>${escapeHtml(n)}</span><small>${focusHoursLabel(m)}</small></div></div>`).join('')}</div>` : ''}`;
+}
+
+function pfJourneySection(entries, books, badges){
+  const all = entries.map(e => e.entry_date).filter(Boolean).sort();
+  let body;
+  if(!all.length){
+    body = '<div class="pf-empty">ستظهر رحلتك هنا بعد أول قيد تسجله.</div>';
+  } else {
+    const today = toDateStr(new Date());
+    const evs = [];
+    evs.push({d:all[0], icon:'flag', t:'بداية الرحلة', s:'أول قيد سجّلته', strong:true});
+    const act = bookActivity();
+    books.forEach(b => {
+      const a = act.get(b.id);
+      if(!a) return;
+      const sn = (b.subjects && b.subjects.name) || '';
+      evs.push({d:a.first, icon:'book', t:`بدأتَ دراسة «${escapeHtml(b.name)}»`, s:sn});
+      if(b.status === 'complete') evs.push({d:a.last, icon:'check', t:`أتممتَ «${escapeHtml(b.name)}»`, s:sn, strong:true});
+    });
+    badges.filter(x => x.earned && x.date).forEach(x => evs.push({d:x.date, icon:'trophy', t:`نلتَ ${x.title}`, s:'', strong:true}));
+    const days = [...new Set(all)];
+    for(let i = 1; i < days.length; i++){
+      const gap = dayDiff(days[i - 1], days[i]) - 1;
+      if(gap >= 14) evs.push({d:days[i], icon:'moon', t:`عدتَ بعد انقطاع ${daysWord(gap)}`, s:'', muted:true});
+    }
+    evs.sort((a, b) => a.d.localeCompare(b.d));
+    if(pfState.jdesc) evs.reverse();
+    const since = dayDiff(all[0], today) + 1;
+    const month = d => new Date(d + 'T00:00:00').toLocaleDateString('ar-u-nu-latn-ca-gregory', {month:'long', year:'numeric'});
+    let html = '', last = '';
+    evs.forEach(e => {
+      const m = month(e.d);
+      if(m !== last){ html += `${last ? '</div>' : ''}<div class="jr-month">${m}</div><div class="jr-list">`; last = m; }
+      html += `<div class="jr-ev${e.strong ? ' strong' : ''}${e.muted ? ' muted' : ''}"><span class="jr-dot">${ic(e.icon, 12)}</span><div class="jr-t">${e.t}</div><div class="jr-s">${pfDate(e.d)}${e.s ? ' · ' + escapeHtml(e.s) : ''}</div></div>`;
+    });
+    html += '</div>';
+    const now = `<div class="jr-list jr-now" style="margin-top:6px"><div class="jr-ev"><span class="jr-dot">${ic('star', 12)}</span><div class="jr-t">اليوم</div><div class="jr-s">${pfDate(today)}</div></div></div>`;
+    body = `
+      <div class="jr-head">بدأتَ رحلتك في <b>${pfDate(all[0])}</b>، ومضى عليها <b>${daysWord(since)}</b>، ودرستَ في <b>${days.length}</b> منها.</div>
+      <div class="jr-tools"><div class="tag-choices"><button class="${!pfState.jdesc ? 'active' : ''}" onclick="pfSetJourneyOrder(false)">من البداية</button><button class="${pfState.jdesc ? 'active' : ''}" onclick="pfSetJourneyOrder(true)">الأحدث أولًا</button></div></div>
+      ${pfState.jdesc ? now : ''}${html}${pfState.jdesc ? '' : now}`;
+  }
+  return `<div class="pf-sec${pfState.journey ? ' open' : ''}" id="pf-journey">
+    <button class="pf-sec-head" onclick="pfToggle('journey')"><span>الخط الزمني للرحلة</span><span class="pf-chev">⌄</span></button>
+    <div class="pf-body">${body}</div></div>`;
 }
 
 function renderProfileView(){
@@ -3059,12 +3588,15 @@ function renderProfileView(){
     </div>` : '';
 
   const statsHtml = [
-    pfStatRow('🔥', 'أفضل مداومة', `${st.bestStreak}<small>يوم</small>`, `المداومة الحالية: ${st.currentStreak} يوم`),
-    pfStatRow('📚', 'الكتب المقروءة', `${st.booksRead}`, st.booksTotal ? `من أصل ${st.booksTotal} كتاب في مكتبتك` : ''),
-    pfStatRow('📝', 'عدد الدروس', `${st.lessons}`, ''),
-    pfStatRow('📄', 'عدد الصفحات', `${st.pages}`, ''),
-    pfStatRow('⏱', 'إجمالي وقت التركيز', focusHoursLabel(st.focusMinutes), `${st.sessions} جلسة تركيز`)
+    pfStatRow(ic('flame', 22), 'أفضل مداومة', `${st.bestStreak}<small>يوم</small>`, `المداومة الحالية: ${st.currentStreak} يوم`),
+    pfStatRow(ic('book', 22), 'الكتب المقروءة', `${st.booksRead}`, st.booksTotal ? `من أصل ${st.booksTotal} كتاب في مكتبتك` : ''),
+    pfStatRow(ic('pencil', 22), 'عدد الدروس', `${st.lessons}`, ''),
+    pfStatRow(ic('file', 22), 'عدد الصفحات', `${st.pages}`, ''),
+    pfStatRow(ic('clock', 22), 'إجمالي وقت التركيز', focusHoursLabel(st.focusMinutes), `${st.sessions} جلسة تركيز`)
   ].join('');
+
+  const yearHtml = pfYearSection(entries, books);
+  const journeyHtml = pfJourneySection(entries, books, badges);
 
   el.innerHTML = `
     <div class="pf-top">
@@ -3074,7 +3606,7 @@ function renderProfileView(){
         <div class="pf-handle">${handle ? '@' + escapeHtml(handle) : 'اختر معرّفًا مميزًا'}</div>
       </div>
     </div>
-    <div class="pf-since">📅 <span>${created ? 'عضو منذ ' + pfDate(created.slice(0,10)) : ''}</span></div>
+    <div class="pf-since">${ic('calendar', 15)} <span>${created ? 'عضو منذ ' + pfDate(created.slice(0,10)) : ''}</span></div>
     <button class="pf-edit-btn" onclick="pfToggle('edit')">✎ تعديل</button>
 
     <div class="pf-edit-panel${pfState.edit ? ' open' : ''}" id="pf-edit">
@@ -3093,7 +3625,76 @@ function renderProfileView(){
     <div class="pf-sec${pfState.stats ? ' open' : ''}" id="pf-stats">
       <button class="pf-sec-head" onclick="pfToggle('stats')"><span>الإحصائيات</span><span class="pf-chev">⌄</span></button>
       <div class="pf-body"><div class="pf-stat-list">${statsHtml}</div></div>
-    </div>`;
+    </div>
+    ${yearHtml}
+    ${journeyHtml}`;
+}
+
+/* ============ الرسوم البيانية (SVG) ============ */
+
+let statsMetric = 'lessons';
+let _chartId = 0;
+function setStatsMetric(m){ statsMetric = m; renderStatsView(); }
+
+function niceStep(max){
+  const raw = max / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1e-9))));
+  for(const m of [1, 2, 2.5, 5, 10]) if(m * mag >= raw) return m * mag;
+  return 10 * mag;
+}
+
+// o: {values, labels, tips, goal, fmt, todayIdx, rtl}
+function svgBarChart(o){
+  const W = 360, H = 190, pl = 6, pr = 30, pt = 16, pb = 24;
+  const n = o.values.length;
+  const max0 = Math.max(1, ...o.values, o.goal || 0);
+  const step = niceStep(max0);
+  const top = step * 4;
+  const innerH = H - pt - pb;
+  const bw = (W - pl - pr) / n;
+  const barW = Math.min(26, bw * 0.62);
+  const yOf = v => H - pb - (v / top) * innerH;
+  const fmt = o.fmt || (v => String(v));
+  const id = 'chart' + (++_chartId);
+  const grid = [0, 1, 2, 3, 4].map(k => {
+    const v = step * k, y = yOf(v);
+    return `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/><text x="${W - pr + 5}" y="${(y + 3).toFixed(1)}">${fmt(Math.round(v * 10) / 10)}</text>`;
+  }).join('');
+  const bars = o.values.map((v, i) => {
+    const xi = W - pr - (i + 1) * bw;                     // الأقدم يمينًا والأحدث يسارًا، كاتجاه القراءة العربية
+    const x = xi + (bw - barW) / 2;
+    const h = Math.max(v > 0 ? 2 : 0, (v / top) * innerH);
+    const met = o.goal && v >= o.goal;
+    const tip = attrEscape(o.tips ? o.tips[i] : String(v));
+    const lbl = o.labels[i] ? `<text x="${(xi + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${o.labels[i]}</text>` : '';
+    const val = (n <= 12 && v > 0) ? `<text class="val" x="${(xi + bw / 2).toFixed(1)}" y="${(yOf(v) - 3).toFixed(1)}" text-anchor="middle">${fmt(Math.round(v * 10) / 10)}</text>` : '';
+    return `<g onclick="chartTip(this)" data-tip="${tip}">
+      <rect class="hit" x="${xi.toFixed(1)}" y="${pt}" width="${bw.toFixed(1)}" height="${innerH}"/>
+      <rect class="cb${met ? ' met' : ''}${i === o.todayIdx ? ' today' : ''}" style="--i:${i}" x="${x.toFixed(1)}" y="${(H - pb - h).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3"/>
+      ${val}${lbl}</g>`;
+  }).join('');
+  const goalLine = o.goal ? `<line class="goal" x1="${pl}" x2="${W - pr}" y1="${yOf(o.goal).toFixed(1)}" y2="${yOf(o.goal).toFixed(1)}"/><text class="goal-t" x="${pl + 2}" y="${(yOf(o.goal) - 3).toFixed(1)}">الهدف</text>` : '';
+  return `<div class="chart" id="${id}"><svg viewBox="0 0 ${W} ${H}" role="img">${grid}${goalLine}${bars}</svg><div class="chart-tip">اضغط على عمود لعرض تفاصيله</div></div>`;
+}
+
+function chartTip(g){
+  const box = g.closest('.chart');
+  if(!box) return;
+  box.querySelectorAll('g.sel').forEach(x => x.classList.remove('sel'));
+  g.classList.add('sel');
+  box.querySelector('.chart-tip').textContent = g.getAttribute('data-tip') || '';
+}
+
+function statsChartHtml(days, goal, dayLabel){
+  const isMin = statsMetric === 'minutes';
+  const values = days.map(x => isMin ? x.m : x.n);
+  const tips = days.map(x => `${formatDate(x.ds)}: ${isMin ? focusHoursLabel(x.m) : x.n + ' ' + (x.n === 1 ? 'درس' : 'دروس')}`);
+  return `<div class="tag-choices" style="margin:4px 0 8px">
+      <button class="${!isMin ? 'active' : ''}" onclick="setStatsMetric('lessons')">الدروس</button>
+      <button class="${isMin ? 'active' : ''}" onclick="setStatsMetric('minutes')">وقت التركيز (دقائق)</button>
+    </div>
+    ${svgBarChart({values, labels: days.map(dayLabel), tips, goal: isMin ? 0 : goal, todayIdx: days.length - 1, fmt: isMin ? (v => String(v)) : null})}
+    ${(!isMin && goal) ? '<div class="hint">اللون الذهبي: يوم حققت فيه هدفك (' + goal + ' ' + (goal === 1 ? 'درس' : 'دروس') + ').</div>' : ''}`;
 }
 
 let statsRange = 7;
@@ -3127,7 +3728,7 @@ function renderStatsView(){
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     const ds = toDateStr(d);
-    days.push({ds, d, idx: statsRange - 1 - i, n: lessonsOnDate(byDate, ds)});
+    days.push({ds, d, idx: statsRange - 1 - i, n: lessonsOnDate(byDate, ds), m: (byDate.get(ds) || []).filter(e => e.type === 'tarkiz').reduce((s,e) => s + Math.max(0, Number(e.focus_minutes) || 0), 0)});
   }
   const total = days.reduce((sum, x) => sum + x.n, 0);
   const avg = Math.round(total / statsRange * 10) / 10;
@@ -3192,6 +3793,7 @@ function renderStatsView(){
       <div class="book-stat">
         <div class="cb-row"><div class="sj-name" style="margin-bottom:0">${escapeHtml(b.name)}</div><div class="cb-pct">${p.pct}%</div></div>
         <div class="cb-sub">${p.done} / ${p.total} ${p.unit}</div>
+        ${bookTimeHtml(b)}
         <div class="sj-progress-bar" style="margin-bottom:0"><div class="sj-progress-fill" style="width:${p.pct}%"></div></div>
         <div class="forecast">${forecast}</div>
       </div>`;
@@ -3210,15 +3812,7 @@ function renderStatsView(){
         <button class="${statsRange === 30 ? 'active' : ''}" onclick="setStatsRange(30)">٣٠ يومًا</button>
       </div>
     </div>
-    <div class="bars">
-      ${days.map(x => `
-        <div class="bar-col" title="${formatDate(x.ds)}: ${x.n} ${x.n === 1 ? 'درس' : 'دروس'}">
-          <div class="bar-val">${x.n || ''}</div>
-          <div class="bar-wrap"><div class="bar ${goal && x.n >= goal ? 'met' : ''}" style="height:${Math.round(x.n / max * 100)}%"></div></div>
-        </div>`).join('')}
-    </div>
-    <div class="bars-lbl">${days.map(x => `<span>${dayLabel(x)}</span>`).join('')}</div>
-    ${goal ? '<div class="hint">اللون الذهبي: يوم حققت فيه هدفك (' + goal + ' ' + (goal === 1 ? 'درس' : 'دروس') + ').</div>' : ''}
+    ${statsChartHtml(days, goal, dayLabel)}
     <div class="stat-line">
       في آخر ${statsRange === 7 ? 'سبعة أيام' : 'ثلاثين يومًا'}: <b>${total}</b> ${total === 1 ? 'درس' : 'دروس'}،
       بمعدل <b>${avg}</b> درس في اليوم${best.n > 0 ? `، وأفضل يوم ${formatDate(best.ds)} (${best.n})` : ''}.
