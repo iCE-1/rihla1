@@ -602,8 +602,35 @@
   .pf-badge-date{font-size:.7rem;color:var(--ink-soft);margin-top:4px;}
   .pf-empty{font-size:.85rem;color:var(--ink-soft);padding:6px 0;}
 
-  .entry-note{margin:8px 0 2px;padding:9px 12px;background:var(--paper);border-radius:var(--r-sm);border-right:2px solid var(--gold);font-size:.86rem;line-height:1.9;color:var(--ink);white-space:pre-wrap;}
-  .entry-note .ic{color:var(--gold);}
+  .entry-note{margin:8px 0 2px;padding:10px 14px;background:var(--paper);border-radius:var(--r-sm);border-right:3px solid var(--gold);font-size:.88rem;line-height:1.95;color:var(--ink);white-space:pre-wrap;}
+
+  /* خانة الملاحظات في النماذج: قسم قابل للطي */
+  .note-fold{margin:0 0 14px;border:1px solid var(--rule);border-radius:var(--r-md);background:var(--paper);overflow:hidden;transition:border-color .2s,box-shadow .2s;}
+  .note-fold.open{border-color:var(--gold);box-shadow:0 0 0 1px rgba(212,175,90,.25);}
+  .note-head{width:100%;display:flex;align-items:center;gap:9px;padding:11px 14px;background:transparent;border:0;color:var(--ink);font-family:'Tajawal',sans-serif;font-size:.86rem;cursor:pointer;text-align:right;}
+  .note-head .ic{color:var(--gold);}
+  .note-dot{display:none;width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px var(--gold);}
+  .note-fold.has .note-dot{display:inline-block;}
+  .note-chev{margin-inline-start:auto;color:var(--ink-soft);transition:transform .2s;}
+  .note-fold.open .note-chev{transform:rotate(180deg);}
+  .note-body{display:none;padding:0 12px 12px;}
+  .note-fold.open .note-body{display:block;animation:cardIn .22s ease;}
+  .note-body textarea{width:100%;min-height:88px;padding:10px 12px;border:1px solid var(--rule);background:var(--paper-dark);color:var(--ink);border-radius:var(--r-sm);font-family:'Tajawal',sans-serif;font-size:.92rem;line-height:1.95;resize:vertical;}
+  .note-body textarea:focus{outline:none;border-color:var(--gold);}
+  body.zen #focusPanel > .note-fold{display:none !important;}
+
+  /* عرض الملاحظة في السجل: قابل للطي */
+  .note-det{margin:8px 0 2px;}
+  .note-det summary{list-style:none;display:inline-flex;align-items:center;gap:7px;max-width:100%;padding:4px 13px;border:1px dashed var(--rule);border-radius:999px;font-size:.78rem;color:var(--ink-soft);cursor:pointer;transition:border-color .2s,color .2s;}
+  .note-det summary::-webkit-details-marker{display:none;}
+  .note-det summary:hover{border-color:var(--gold);color:var(--ink);}
+  .note-det summary .ic{color:var(--gold);flex:none;}
+  .note-det .np{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62vw;}
+  .note-det .nl{display:none;}
+  .note-det[open] summary{border-style:solid;border-color:var(--gold);color:var(--gold);}
+  .note-det[open] .np{display:none;}
+  .note-det[open] .nl{display:inline;}
+  .note-det[open] .entry-note{animation:cardIn .25s ease;}
   /* ===== إضافة: تشجير المسائل (تعتمد متغيرات الموقع نفسها) ===== */
   .tabs-nav .tab-btn{white-space:nowrap;flex:0 0 auto;}
   body.wide-tab .wrap{max-width:1500px;}
@@ -699,6 +726,38 @@ let editingEntryId = null;
 let entriesById = new Map();
 
 function tagLabel(id){ return id === 'tarkiz' ? 'جلسة تركيز' : 'قيد'; }
+
+// خانة ملاحظات قابلة للطي: تبقى مطوية حتى تحتاجها، وتُفتح تلقائيًا إن كان فيها نص
+function noteFoldHtml(id, value, placeholder, extraOnInput){
+  const has = !!(value || '').trim();
+  return `<div class="note-fold${has ? ' open has' : ''}" id="${id}Fold">
+    <button type="button" class="note-head" onclick="toggleNoteFold('${id}')">${ic('pencil', 15)}<span>ملاحظات (اختياري)</span><i class="note-dot"></i><span class="note-chev">⌄</span></button>
+    <div class="note-body"><textarea id="${id}" placeholder="${attrEscape(placeholder)}" oninput="noteInput('${id}');${extraOnInput || ''}">${escapeHtml(value || '')}</textarea></div>
+  </div>`;
+}
+function toggleNoteFold(id){
+  const f = document.getElementById(id + 'Fold');
+  if(!f) return;
+  const open = f.classList.toggle('open');
+  if(open) setTimeout(() => document.getElementById(id)?.focus(), 60);
+}
+function noteInput(id){
+  const f = document.getElementById(id + 'Fold'), t = document.getElementById(id);
+  if(f && t) f.classList.toggle('has', !!t.value.trim());
+}
+// بعد تعبئة الخانة برمجيًا (مسودة/تعديل): نحدّث النقطة ونفتحها إن كان فيها نص
+function syncNoteFold(id){
+  const f = document.getElementById(id + 'Fold'), t = document.getElementById(id);
+  if(!f || !t) return;
+  const has = !!t.value.trim();
+  f.classList.toggle('has', has);
+  if(has) f.classList.add('open');
+}
+function resetNoteFold(id){
+  const t = document.getElementById(id);
+  if(t) t.value = '';
+  document.getElementById(id + 'Fold')?.classList.remove('open', 'has');
+}
 
 // الملاحظة تُحفظ داخل نص القيد نفسه بعد فاصل ثابت، فلا يلزم تعديل Supabase
 const NOTE_SEP = '\nملاحظة: ';
@@ -1240,7 +1299,7 @@ function entryDraftRestore(){
     onEntryBookChange();
     if(d.lesson) g('entryLesson').value = d.lesson;
     if(d.minutes) g('entryMinutes').value = d.minutes;
-    if(d.note) g('entryNote').value = d.note;
+    if(d.note){ g('entryNote').value = d.note; syncNoteFold('entryNote'); }
     g('entryReview').checked = !!d.review;
   }catch(e){}
 }
@@ -1451,10 +1510,7 @@ function renderDailyView(){
           <input type="date" id="dateInput">
         </div>
       </div>
-      <div class="field">
-        <label>ملاحظات (اختياري)</label>
-        <textarea id="entryNote" placeholder="مثل: درستُ مبحث الفاعل، أو الفصل الثالث، أو شرح عبارة «...»"></textarea>
-      </div>
+      ${noteFoldHtml('entryNote', '', 'مثل: درستُ مبحث الفاعل، أو الفصل الثالث، أو شرح عبارة «...»')}
       <label class="focus-check"><input type="checkbox" id="entryReview"> مراجعة (لا تُحسب درسًا جديدًا ولا تغيّر إنجاز الكتاب)</label>
       <button class="primary" id="saveEntryButton" onclick="addEntry()" style="width:100%">حفظ جلسة التركيز</button>
       <div id="cancelEditWrap" style="display:none;text-align:left;margin-top:-5px">
@@ -2270,10 +2326,7 @@ function focusLinkHtml(){
         <input id="focusLesson" type="text" inputmode="numeric" value="${attrEscape(focusLessonNo)}" ${b ? '' : 'disabled'} placeholder="${b ? 'مثل: ' + (done + 1) : 'اختر كتابًا أولاً'}" oninput="focusLessonNo=this.value;localStorage.setItem('rihla_focus_lesson',this.value);updateFocusTarget()">
       </div>
     </div>
-    <div class="field">
-      <label>ملاحظات الجلسة (اختياري)</label>
-      <textarea id="focusNote" placeholder="مثل: درستُ مبحث الفاعل، أو الفصل الثالث، أو شرح عبارة «...»" oninput="focusNoteVal=this.value;localStorage.setItem('rihla_focus_note',this.value)">${escapeHtml(focusNoteVal)}</textarea>
-    </div>
+    ${noteFoldHtml('focusNote', focusNoteVal, 'مثل: درستُ مبحث الفاعل، أو الفصل الثالث، أو شرح عبارة «...»', "focusNoteVal=this.value;localStorage.setItem('rihla_focus_note',this.value)")}
     <div class="hint" id="focusLessonHint" style="margin:-6px 0 14px">${b ? `وصلتَ حاليًا إلى ${unit} ${done}. يُسجَّل الإنجاز عند انتهاء الجلسة. اكتب «مراجعة» في الوسم إن كانت مراجعة، فلا تُحسب درسًا جديدًا.` : ''}</div>`;
 }
 
@@ -2769,8 +2822,7 @@ async function logFocusSession(minutes, phaseLabel, tag, link){
     // سُجّلت الملاحظة مع الجلسة؛ نفرّغ الخانة للجلسة التالية
     focusNoteVal = '';
     localStorage.removeItem('rihla_focus_note');
-    const ni = document.getElementById('focusNote');
-    if(ni) ni.value = '';
+    resetNoteFold('focusNote');
   }
 }
 
@@ -2906,6 +2958,7 @@ function startEditEntry(id){
   document.getElementById('entryLesson').value = entry.lesson_number || '';
   document.getElementById('entryMinutes').value = entry.focus_minutes || '';
   document.getElementById('entryNote').value = splitNote(entry.content).note;
+  syncNoteFold('entryNote');
   document.getElementById('entryReview').checked = isReviewEntry(entry);
   document.getElementById('saveEntryButton').textContent = 'حفظ التعديلات';
   document.getElementById('cancelEditWrap').style.display = '';
@@ -2921,7 +2974,7 @@ function cancelEditEntry(){
   sel.value = '';
   document.getElementById('entryLesson').value = '';
   document.getElementById('entryMinutes').value = '';
-  document.getElementById('entryNote').value = '';
+  resetNoteFold('entryNote');
   document.getElementById('entryReview').checked = false;
   onEntryBookChange();
   document.getElementById('dateInput').valueAsDate = new Date();
@@ -3014,7 +3067,7 @@ function renderTimeline(){
       <button class="ghost del" onclick="deleteEntry('${e.id}')">حذف</button>
       ${e.type === 'tarkiz' ? `<button class="ghost edit" onclick="startEditEntry('${e.id}')">تعديل</button>` : ''}
       <div class="date">${formatDate(e.entry_date)} <span class="tag">${tagLabel(e.type)}</span></div>
-      ${(() => { const s = splitNote(e.content); return `<p>${escapeHtml(s.main)}</p>${s.note ? `<div class="entry-note">${ic('pencil', 12)} ${escapeHtml(s.note)}</div>` : ''}`; })()}
+      ${(() => { const s = splitNote(e.content); if(!s.note) return `<p>${escapeHtml(s.main)}</p>`; const first = s.note.split('\n')[0]; const pv = first.length > 46 ? first.slice(0, 46) + '…' : first; return `<p>${escapeHtml(s.main)}</p><details class="note-det"><summary>${ic('pencil', 12)}<span class="np">${escapeHtml(pv)}</span><span class="nl">ملاحظة</span></summary><div class="entry-note">${escapeHtml(s.note)}</div></details>`; })()}
       ${e.tags ? `<div class="tags-row">${splitTags(e.tags).map(t=>`<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
     </div>
   `;
