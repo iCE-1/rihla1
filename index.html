@@ -602,6 +602,8 @@
   .pf-badge-date{font-size:.7rem;color:var(--ink-soft);margin-top:4px;}
   .pf-empty{font-size:.85rem;color:var(--ink-soft);padding:6px 0;}
 
+  .entry-note{margin:8px 0 2px;padding:9px 12px;background:var(--paper);border-radius:var(--r-sm);border-right:2px solid var(--gold);font-size:.86rem;line-height:1.9;color:var(--ink);white-space:pre-wrap;}
+  .entry-note .ic{color:var(--gold);}
   /* ===== إضافة: تشجير المسائل (تعتمد متغيرات الموقع نفسها) ===== */
   .tabs-nav .tab-btn{white-space:nowrap;flex:0 0 auto;}
   body.wide-tab .wrap{max-width:1500px;}
@@ -697,6 +699,18 @@ let editingEntryId = null;
 let entriesById = new Map();
 
 function tagLabel(id){ return id === 'tarkiz' ? 'جلسة تركيز' : 'قيد'; }
+
+// الملاحظة تُحفظ داخل نص القيد نفسه بعد فاصل ثابت، فلا يلزم تعديل Supabase
+const NOTE_SEP = '\nملاحظة: ';
+function withNote(content, note){
+  const n = (note || '').trim();
+  return n ? content + NOTE_SEP + n : content;
+}
+function splitNote(content){
+  const c = content || '';
+  const i = c.indexOf(NOTE_SEP);
+  return i < 0 ? {main: c, note: ''} : {main: c.slice(0, i), note: c.slice(i + NOTE_SEP.length)};
+}
 
 function toDateStr(d){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -1207,9 +1221,9 @@ function entryDraftSave(){
     if(editingEntryId) return;
     const g = id => document.getElementById(id);
     if(!g('entryBook')) return;
-    const d = {book:g('entryBook').value, lesson:g('entryLesson').value, minutes:g('entryMinutes').value, review:g('entryReview').checked};
+    const d = {book:g('entryBook').value, lesson:g('entryLesson').value, minutes:g('entryMinutes').value, note:g('entryNote').value, review:g('entryReview').checked};
     try{
-      if(d.book || d.lesson || d.minutes || d.review){
+      if(d.book || d.lesson || d.minutes || d.note || d.review){
         localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
         const ind = g('draftInd');
         if(ind){ ind.innerHTML = ic('check', 12) + ' حُفظت المسودة'; ind.classList.add('show'); setTimeout(() => ind.classList.remove('show'), 1500); }
@@ -1226,6 +1240,7 @@ function entryDraftRestore(){
     onEntryBookChange();
     if(d.lesson) g('entryLesson').value = d.lesson;
     if(d.minutes) g('entryMinutes').value = d.minutes;
+    if(d.note) g('entryNote').value = d.note;
     g('entryReview').checked = !!d.review;
   }catch(e){}
 }
@@ -1435,6 +1450,10 @@ function renderDailyView(){
           <label>التاريخ</label>
           <input type="date" id="dateInput">
         </div>
+      </div>
+      <div class="field">
+        <label>ملاحظات (اختياري)</label>
+        <textarea id="entryNote" placeholder="مثل: درستُ مبحث الفاعل، أو الفصل الثالث، أو شرح عبارة «...»"></textarea>
       </div>
       <label class="focus-check"><input type="checkbox" id="entryReview"> مراجعة (لا تُحسب درسًا جديدًا ولا تغيّر إنجاز الكتاب)</label>
       <button class="primary" id="saveEntryButton" onclick="addEntry()" style="width:100%">حفظ جلسة التركيز</button>
@@ -2217,6 +2236,7 @@ const BASE_TITLE = document.title;
 let focusBookId = localStorage.getItem('rihla_focus_book') || '';
 let focusLessonNo = localStorage.getItem('rihla_focus_lesson') || '';
 let focusTagVal = localStorage.getItem('rihla_focus_tag') || '';
+let focusNoteVal = localStorage.getItem('rihla_focus_note') || '';
 let pmCfg = {work:25, short:5, long:15, rounds:4, free:20};
 try { Object.assign(pmCfg, JSON.parse(localStorage.getItem('rihla_pm') || '{}')); } catch(e) {}
 
@@ -2242,13 +2262,17 @@ function focusLinkHtml(){
     </div>
     <div class="row2">
       <div class="field">
-        <label>الوسم أو الملاحظة (اختياري)</label>
+        <label>الوسم (اختياري)</label>
         <input id="focusTag" value="${attrEscape(focusTagVal)}" placeholder="مثل: مراجعة، حفظ" oninput="focusTagVal=this.value;localStorage.setItem('rihla_focus_tag',this.value);updateFocusTarget()">
       </div>
       <div class="field">
         <label id="focusLessonLabel">${unit === 'صفحة' ? 'رقم الصفحة' : 'رقم الدرس'}</label>
         <input id="focusLesson" type="text" inputmode="numeric" value="${attrEscape(focusLessonNo)}" ${b ? '' : 'disabled'} placeholder="${b ? 'مثل: ' + (done + 1) : 'اختر كتابًا أولاً'}" oninput="focusLessonNo=this.value;localStorage.setItem('rihla_focus_lesson',this.value);updateFocusTarget()">
       </div>
+    </div>
+    <div class="field">
+      <label>ملاحظات الجلسة (اختياري)</label>
+      <textarea id="focusNote" placeholder="مثل: درستُ مبحث الفاعل، أو الفصل الثالث، أو شرح عبارة «...»" oninput="focusNoteVal=this.value;localStorage.setItem('rihla_focus_note',this.value)">${escapeHtml(focusNoteVal)}</textarea>
     </div>
     <div class="hint" id="focusLessonHint" style="margin:-6px 0 14px">${b ? `وصلتَ حاليًا إلى ${unit} ${done}. يُسجَّل الإنجاز عند انتهاء الجلسة. اكتب «مراجعة» في الوسم إن كانت مراجعة، فلا تُحسب درسًا جديدًا.` : ''}</div>`;
 }
@@ -2297,7 +2321,7 @@ function updateFocusLinkUi(){
 function collectFocusLink(){
   const b = booksCache.find(x => x.id === focusBookId) || null;
   const n = b ? (parseInt(normalizeDigits(focusLessonNo)) || 0) : 0;
-  return {book: b, n, review: isReviewText(focusTagVal)};
+  return {book: b, n, review: isReviewText(focusTagVal), note: focusNoteVal.trim()};
 }
 
 function renderFocusView(){
@@ -2731,7 +2755,7 @@ async function logFocusSession(minutes, phaseLabel, tag, link){
   const payload = {
     entry_date: toDateStr(new Date()),
     type: 'tarkiz',
-    content: `جلسة تركيز (${phaseLabel}): ${minutes} دقيقة${where}`,
+    content: withNote(`جلسة تركيز (${phaseLabel}): ${minutes} دقيقة${where}`, link && link.note),
     tags: parts.join(', '),
     focus_minutes: minutes,
     book_id: book ? book.id : null,
@@ -2741,6 +2765,12 @@ async function logFocusSession(minutes, phaseLabel, tag, link){
   if(error){
     // لا نحفظ نسخة غير مربوطة بالكتاب؛ وإلا تختفي الجلسة من إحصائياته ولا يمكن تعديلها لاحقًا.
     showToast('تعذّر حفظ جلسة التركيز: ' + error.message, 'warn');
+  } else if(link && link.note){
+    // سُجّلت الملاحظة مع الجلسة؛ نفرّغ الخانة للجلسة التالية
+    focusNoteVal = '';
+    localStorage.removeItem('rihla_focus_note');
+    const ni = document.getElementById('focusNote');
+    if(ni) ni.value = '';
   }
 }
 
@@ -2841,7 +2871,7 @@ async function addEntry(){
   const payload = {
     entry_date: date,
     type: 'tarkiz',
-    content: `${review ? 'جلسة مراجعة' : 'جلسة تركيز'}: ${book.name} — ${unit} ${lessonNo} — ${minutes} دقيقة`,
+    content: withNote(`${review ? 'جلسة مراجعة' : 'جلسة تركيز'}: ${book.name} — ${unit} ${lessonNo} — ${minutes} دقيقة`, document.getElementById('entryNote').value),
     tags: tags.join(', '),
     focus_minutes: minutes,
     book_id: book.id,
@@ -2875,6 +2905,7 @@ function startEditEntry(id){
   onEntryBookChange();
   document.getElementById('entryLesson').value = entry.lesson_number || '';
   document.getElementById('entryMinutes').value = entry.focus_minutes || '';
+  document.getElementById('entryNote').value = splitNote(entry.content).note;
   document.getElementById('entryReview').checked = isReviewEntry(entry);
   document.getElementById('saveEntryButton').textContent = 'حفظ التعديلات';
   document.getElementById('cancelEditWrap').style.display = '';
@@ -2890,6 +2921,7 @@ function cancelEditEntry(){
   sel.value = '';
   document.getElementById('entryLesson').value = '';
   document.getElementById('entryMinutes').value = '';
+  document.getElementById('entryNote').value = '';
   document.getElementById('entryReview').checked = false;
   onEntryBookChange();
   document.getElementById('dateInput').valueAsDate = new Date();
@@ -2982,7 +3014,7 @@ function renderTimeline(){
       <button class="ghost del" onclick="deleteEntry('${e.id}')">حذف</button>
       ${e.type === 'tarkiz' ? `<button class="ghost edit" onclick="startEditEntry('${e.id}')">تعديل</button>` : ''}
       <div class="date">${formatDate(e.entry_date)} <span class="tag">${tagLabel(e.type)}</span></div>
-      <p>${escapeHtml(e.content)}</p>
+      ${(() => { const s = splitNote(e.content); return `<p>${escapeHtml(s.main)}</p>${s.note ? `<div class="entry-note">${ic('pencil', 12)} ${escapeHtml(s.note)}</div>` : ''}`; })()}
       ${e.tags ? `<div class="tags-row">${splitTags(e.tags).map(t=>`<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
     </div>
   `;
