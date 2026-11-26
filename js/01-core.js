@@ -330,6 +330,7 @@ async function renderApp(){
       <button class="tab-btn active" id="tabDaily" onclick="switchTab('daily')">السجل اليومي</button>
       <button class="tab-btn" id="tabPath" onclick="switchTab('path')">الطريق</button>
       <button class="tab-btn" id="tabFocus" onclick="switchTab('focus')">التركيز</button>
+      <button class="tab-btn" id="tabReview" onclick="switchTab('review')">المراجعة</button>
       <button class="tab-btn" id="tabStats" onclick="switchTab('stats')">الإحصائيات</button>
       <button class="tab-btn" id="tabPtree" onclick="switchTab('ptree')">التشجير</button>
     </div>
@@ -337,6 +338,7 @@ async function renderApp(){
     <div id="dailyView"></div>
     <div id="pathView" style="display:none"></div>
     <div id="focusView" style="display:none"></div>
+    <div id="reviewView" style="display:none"></div>
     <div id="statsView" style="display:none"></div>
     <div id="ptreeView" style="display:none"></div>
     <div id="profileView" style="display:none"></div>
@@ -351,7 +353,7 @@ async function renderApp(){
   renderProfileView();
   openProfile();
   const savedTab = localStorage.getItem(LAST_TAB_KEY);
-  if(['path','focus','stats','ptree','profile'].includes(savedTab)) switchTab(savedTab);
+  if(['path','focus','review','stats','ptree','profile'].includes(savedTab)) switchTab(savedTab);
   else restoreScroll('daily');
 }
 
@@ -392,7 +394,7 @@ function switchTab(tab){
   saveScrollMap();
   if(document.body.classList.contains('zen')) toggleZen();
   if(tab==='path') currentSubjectId = null;
-  const tabs = {daily:['tabDaily','dailyView'], path:['tabPath','pathView'], focus:['tabFocus','focusView'], stats:['tabStats','statsView'], ptree:['tabPtree','ptreeView'], profile:['tabProfile','profileView']};
+  const tabs = {daily:['tabDaily','dailyView'], path:['tabPath','pathView'], focus:['tabFocus','focusView'], review:['tabReview','reviewView'], stats:['tabStats','statsView'], ptree:['tabPtree','ptreeView'], profile:['tabProfile','profileView']};
   Object.entries(tabs).forEach(([k,[btn,view]])=>{
     document.getElementById(btn)?.classList.toggle('active', k===tab);
     document.getElementById(view).style.display = k===tab ? '' : 'none';
@@ -401,6 +403,7 @@ function switchTab(tab){
   if(tab==='path') renderPathView();
   if(tab==='daily'){ loadEntries(); syncBooksUi(); }
   if(tab==='focus') syncBooksUi();
+  if(tab==='review') openReview();
   if(tab==='stats') openStats();
   document.body.classList.toggle('wide-tab', tab==='ptree');
   if(tab==='ptree') openPtree();
