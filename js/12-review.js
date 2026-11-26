@@ -1,7 +1,6 @@
-/* 12-review.js — «المراجعة والتكرار»: جدولة التكرار المتباعد للدروس والوحدات، التقييم، التقويم، الإحصائيات */
+/* 12-review.js — «المراجعة والتكرار»: جدولة التكرار المتباعد للوحدات العلمية، التقييم، التقويم، الإحصائيات */
 
 const RV_SCHED_KEY = 'rihla_review_schedule';
-const RV_AUTO_KEY = 'rihla_review_autofrom';
 const RV_DEFAULT = [1, 3, 7, 14, 30, 60, 90];
 const RV_RES = {strong:'متقن', medium:'متوسط', weak:'ضعيف', postponed:'تأجيل'};
 const RV = {items:[], units:[], logs:[], loaded:false, missing:false, err:'', tab:'today', cal:null, calDay:null, view:null, more:null, snooze:null, draft:null};
@@ -72,12 +71,6 @@ function rvDefaultSchedule(){
   try{ const a = JSON.parse(localStorage.getItem(RV_SCHED_KEY) || 'null'); if(Array.isArray(a) && a.length) return rvCleanSched(a); }catch(e){}
   return RV_DEFAULT.slice();
 }
-function rvAutoFrom(){
-  let v = null;
-  try{ v = localStorage.getItem(RV_AUTO_KEY); }catch(e){}
-  if(!v){ v = rvAdd(rvToday(), -30); try{ localStorage.setItem(RV_AUTO_KEY, v); }catch(e){} }
-  return v;
-}
 function rvSame(a, b){ return String(a) === String(b); }
 function rvBookName(id){ const b = booksCache.find(x => rvSame(x.id, id)); return b ? b.name : 'كتاب محذوف'; }
 function rvLessonTitle(bid, n){
@@ -119,33 +112,15 @@ function rvStudied(){
 }
 
 /* ---------- بناء عناصر المراجعة ---------- */
-function rvStartStep(base, sched, today){
-  let idx = -1;
-  sched.forEach((o, i) => { if(rvAdd(base, o) <= today) idx = i; });
-  return idx < 0 ? 0 : idx;
-}
 function rvItems(){
-  const today = rvToday(), st = rvStudied(), out = [], seen = new Set();
+  const out = [];
   RV.items.forEach(r => {
+    if(r.kind !== 'unit') return;   // المراجعة للوحدات فقط
     const sched = Array.isArray(r.schedule) && r.schedule.length ? r.schedule : rvDefaultSchedule();
-    if(r.kind === 'lesson'){
-      const k = r.book_id + ':' + r.lesson_number;
-      seen.add(k);
-      out.push({id:r.id, kind:'lesson', key:k, bookId:r.book_id, n:r.lesson_number, base:r.base_date, schedule:sched,
-        step:r.step, due:r.next_due, status:r.status, persisted:true, title:rvLessonTitle(r.book_id, r.lesson_number), studied:st.get(k) || null});
-    }else{
-      const u = RV.units.find(x => x.id === r.unit_id);
-      if(!u) return;
-      out.push({id:r.id, kind:'unit', unit:u, unitId:u.id, base:r.base_date, schedule:sched,
-        step:r.step, due:r.next_due, status:r.status, persisted:true, title:u.name});
-    }
-  });
-  const sched = rvDefaultSchedule(), autoFrom = rvAutoFrom();
-  st.forEach(s => {
-    if(seen.has(s.key) || s.first < autoFrom) return;
-    const step = rvStartStep(s.first, sched, today);
-    out.push({id:'v:' + s.key, kind:'lesson', key:s.key, bookId:s.bookId, n:s.n, base:s.first, schedule:sched, step,
-      due:rvAdd(s.first, sched[step]), status:'active', persisted:false, title:rvLessonTitle(s.bookId, s.n), studied:s});
+    const u = RV.units.find(x => x.id === r.unit_id);
+    if(!u) return;
+    out.push({id:r.id, kind:'unit', unit:u, unitId:u.id, base:r.base_date, schedule:sched,
+      step:r.step, due:r.next_due, status:r.status, title:u.name});
   });
   return out;
 }
@@ -176,18 +151,10 @@ function rvNext(it, res, today){
 /* ---------- الحفظ ---------- */
 async function rvPersist(it, patch){
   patch.updated_at = new Date().toISOString();
-  if(it.persisted){
-    const {data, error} = await sb.from('review_items').update(patch).eq('id', it.id).select().single();
-    if(error) throw error;
-    const i = RV.items.findIndex(r => r.id === it.id);
-    if(i >= 0) RV.items[i] = data;
-    return data;
-  }
-  const row = Object.assign({kind:'lesson', book_id:String(it.bookId), lesson_number:it.n, base_date:it.base,
-    schedule:it.schedule, step:it.step, next_due:it.due, status:it.status}, patch);
-  const {data, error} = await sb.from('review_items').insert(row).select().single();
+  const {data, error} = await sb.from('review_items').update(patch).eq('id', it.id).select().single();
   if(error) throw error;
-  RV.items.push(data);
+  const i = RV.items.findIndex(r => r.id === it.id);
+  if(i >= 0) RV.items[i] = data;
   return data;
 }
 async function rvLog(itemId, obj){
@@ -337,35 +304,11 @@ async function rvDeleteUnit(id){
   rvRender();
 }
 
-/* ---------- إضافة درس سابق يدويًا + الإعدادات ---------- */
-function rvAddFill(){
-  const bs = document.getElementById('rvAddBook'), ls = document.getElementById('rvAddLesson');
-  if(!bs || !ls) return;
-  const have = new Set(rvItems().filter(i => i.kind === 'lesson').map(i => i.key));
-  const list = [...rvStudied().values()].filter(s => rvSame(s.bookId, bs.value) && !have.has(s.key)).sort((a, b) => a.n - b.n);
-  ls.innerHTML = list.map(s => `<option value="${rvEsc(s.key)}">الدرس ${arabicNumeral(s.n)} — ${pfDate(s.first)}</option>`).join('') || '<option value="">لا دروس</option>';
-}
-async function rvAddLesson(){
-  const key = document.getElementById('rvAddLesson').value;
-  const s = rvStudied().get(key);
-  if(!s){ rvToast('اختر درسًا', true); return; }
-  if(RV.items.some(r => r.kind === 'lesson' && (r.book_id + ':' + r.lesson_number) === key)){ rvToast('هذا الدرس مضاف مسبقًا', true); return; }
-  const sched = rvDefaultSchedule(), step = rvStartStep(s.first, sched, rvToday());
-  const due = [rvAdd(s.first, sched[step]), rvToday()].sort().pop();
-  try{
-    await rvPersist({persisted:false, bookId:s.bookId, n:s.n, base:s.first, schedule:sched, step, due, status:'active'}, {});
-    rvToast('أُضيف الدرس إلى المراجعة');
-  }catch(e){ rvFail(e); }
-  rvRender();
-}
+/* ---------- الإعدادات ---------- */
 function rvSaveSettings(){
   const sched = rvParseSched(document.getElementById('rvSchedIn').value);
   if(!sched.length){ rvToast('اكتب أيامًا صحيحة مفصولة بفواصل', true); return; }
-  const af = document.getElementById('rvAutoIn').value;
-  try{
-    localStorage.setItem(RV_SCHED_KEY, JSON.stringify(sched));
-    if(af) localStorage.setItem(RV_AUTO_KEY, af);
-  }catch(e){}
+  try{ localStorage.setItem(RV_SCHED_KEY, JSON.stringify(sched)); }catch(e){}
   rvToast('حُفظ الجدول الافتراضي');
   rvRender();
 }
@@ -402,16 +345,14 @@ function rvCardHtml(it, opt){
   else if(st === 'paused') due = 'التكرار متوقف' + (it.due ? ` (الموعد المحفوظ ${pfDate(it.due)})` : '');
   else due = 'انتهى التكرار';
   const stepTxt = st === 'done' ? `أتممت ${arabicNumeral(len)} مراجعات` : `المراجعة ${arabicNumeral(Math.min(it.step, len - 1) + 1)} من ${arabicNumeral(len)}`;
-  const meta = it.kind === 'unit'
-    ? `وحدة من ${arabicNumeral(it.unit.lessons.length)} ${it.unit.lessons.length === 1 ? 'درس' : 'دروس'} · أُنشئت ${pfDate(it.base)}`
-    : `درسته ${pfDate(it.base)}`;
+  const meta = `وحدة من ${arabicNumeral(it.unit.lessons.length)} ${it.unit.lessons.length === 1 ? 'درس' : 'دروس'} · أُنشئت ${pfDate(it.base)}`;
   const due_actions = (st === 'overdue' || st === 'today') && !opt.compact
     ? `<div class="rv-actions">${rvRateBtns(it.id)}<button class="ghost" onclick="rvToggleSnooze('${it.id}')">تأجيل</button></div>` : '';
   const snooze = RV.snooze === it.id
     ? `<div class="rv-actions rv-snooze"><span class="hint">أجّل إلى:</span><button class="ghost" onclick="rvPostpone('${it.id}',1)">غدًا</button><button class="ghost" onclick="rvPostpone('${it.id}',3)">بعد ٣ أيام</button><button class="ghost" onclick="rvPostpone('${it.id}',7)">بعد أسبوع</button></div>` : '';
-  const tools = opt.compact ? '' : `<div class="rv-actions rv-tools"><button class="ghost" onclick="rvToggleView('${it.id}')">${it.kind === 'unit' ? 'عرض الدروس' : 'عرض الدرس'}</button><button class="ghost" onclick="rvToggleMore('${it.id}')">المزيد</button>${opt.extra || ''}</div>`;
+  const tools = opt.compact ? '' : `<div class="rv-actions rv-tools"><button class="ghost" onclick="rvToggleView('${it.id}')">عرض الدروس</button><button class="ghost" onclick="rvToggleMore('${it.id}')">المزيد</button>${opt.extra || ''}</div>`;
   return `<div class="book-stat rv-card rv-${st}">
-    <div class="cb-row"><div class="sj-name" style="margin-bottom:0">${rvEsc(it.title)}${it.kind === 'unit' ? ' <span class="rv-kind">وحدة</span>' : ''}</div><div class="cb-pct" style="font-size:1rem">${arabicNumeral(Math.min(it.step, len - 1) + (st === 'done' ? 0 : 1))}/${arabicNumeral(len)}</div></div>
+    <div class="cb-row"><div class="sj-name" style="margin-bottom:0">${rvEsc(it.title)} <span class="rv-kind">وحدة</span></div><div class="cb-pct" style="font-size:1rem">${arabicNumeral(Math.min(it.step, len - 1) + (st === 'done' ? 0 : 1))}/${arabicNumeral(len)}</div></div>
     <div class="cb-sub">${meta} · ${stepTxt}</div>
     <div class="rv-due rv-due-${st}">${due}</div>
     ${due_actions}${snooze}${tools}
@@ -419,15 +360,8 @@ function rvCardHtml(it, opt){
   </div>`;
 }
 function rvViewHtml(it){
-  if(it.kind === 'unit'){
-    const rows = it.unit.lessons.map(l => `<div class="rv-line"><span>${rvEsc(rvLessonTitle(l.b, l.n))}</span><button class="ghost" onclick="rvGoBook('${rvEsc(l.b)}')">فتح الكتاب</button></div>`).join('');
-    return `<div class="rv-panel"><div class="rv-ptitle">دروس الوحدة</div>${rows || '<div class="hint">لا دروس.</div>'}</div>`;
-  }
-  const byName = rvByName();
-  const es = entriesCache.filter(e => !isReviewEntry(e) && rvEntryKey(e, byName) === it.key)
-    .sort((a, b) => a.entry_date < b.entry_date ? 1 : -1).slice(0, 6);
-  const rows = es.map(e => `<div class="rv-line"><span>${pfDate(e.entry_date)}</span><span class="rv-snip">${rvEsc(String(e.content || '').split('\n')[0].slice(0, 110))}</span></div>`).join('');
-  return `<div class="rv-panel"><div class="rv-ptitle">سجل دراسة هذا الدرس</div>${rows || '<div class="hint">لا قيود.</div>'}<div class="rv-actions"><button class="ghost" onclick="rvGoBook('${rvEsc(it.bookId)}')">فتح الكتاب في «الطريق»</button></div></div>`;
+  const rows = it.unit.lessons.map(l => `<div class="rv-line"><span>${rvEsc(rvLessonTitle(l.b, l.n))}</span><button class="ghost" onclick="rvGoBook('${rvEsc(l.b)}')">فتح الكتاب</button></div>`).join('');
+  return `<div class="rv-panel"><div class="rv-ptitle">دروس الوحدة</div>${rows || '<div class="hint">لا دروس.</div>'}</div>`;
 }
 function rvMoreHtml(it){
   const logs = RV.logs.filter(l => l.item_id === it.id).slice(0, 8);
@@ -437,7 +371,7 @@ function rvMoreHtml(it){
     <div class="rv-ptitle">تسجيل مراجعة الآن</div>
     <div class="rv-actions">${rvRateBtns(it.id)}</div>
     <div class="rv-ptitle">تعديل المواعيد</div>
-    <div class="field"><label>أيام التكرار بعد ${it.kind === 'unit' ? 'إنشاء الوحدة' : 'يوم الدرس'} (${pfDate(it.base)})، مفصولة بفواصل</label><input id="rvSch-${it.id}" value="${it.schedule.join('، ')}"></div>
+    <div class="field"><label>أيام التكرار بعد إنشاء الوحدة (${pfDate(it.base)})، مفصولة بفواصل</label><input id="rvSch-${it.id}" value="${it.schedule.join('، ')}"></div>
     <div class="field"><label>موعد المراجعة القادمة</label><input type="date" id="rvDue-${it.id}" value="${it.due || ''}"></div>
     <div class="rv-actions"><button class="primary" onclick="rvSaveEdit('${it.id}')">حفظ التعديل</button>
       ${resume ? `<button class="ghost" onclick="rvSetStatus('${it.id}','active')">استئناف التكرار</button>` : `<button class="ghost" onclick="rvSetStatus('${it.id}','paused')">إيقاف مؤقت</button>`}
@@ -457,7 +391,7 @@ function rvTodayHtml(items){
     <div class="hint" style="margin:0 0 14px">متقن: الموعد التالي في الجدول · متوسط: موعد أقرب (نصف الفترة) · ضعيف: مراجعة غدًا وتراجع خطوة.</div>`;
   if(over.length) h += `<div class="timeline-head"><h2>متأخرة</h2></div>` + over.map(i => rvCardHtml(i)).join('');
   if(now.length) h += `<div class="timeline-head" style="margin-top:18px"><h2>اليوم</h2></div>` + now.map(i => rvCardHtml(i)).join('');
-  if(!over.length && !now.length) h += `<div class="empty">لا مراجعات مستحقة اليوم. ${doneToday ? 'أحسنت، أنجزت مراجعات اليوم.' : 'سجّل دروسًا جديدة وستظهر مراجعاتها هنا تلقائيًا.'}</div>`;
+  if(!over.length && !now.length) h += `<div class="empty">لا مراجعات مستحقة اليوم. ${doneToday ? 'أحسنت، أنجزت مراجعات اليوم.' : 'أنشئ وحدة علمية من تبويب «الوحدات» وستظهر مراجعاتها هنا.'}</div>`;
   return h;
 }
 function rvUpcomingHtml(items){
@@ -473,26 +407,14 @@ function rvUpcomingHtml(items){
   if(!up.length) h += '<div class="empty">لا مراجعات قادمة.</div>';
   const inactive = items.filter(i => ['paused', 'done'].includes(rvState(i, today)));
   if(inactive.length) h += `<details class="rv-set"><summary>متوقفة أو منتهية (${arabicNumeral(inactive.length)})</summary>${inactive.map(i => rvCardHtml(i)).join('')}</details>`;
-  h += rvAddLessonHtml(items) + rvSettingsHtml();
+  h += rvSettingsHtml();
   return h;
-}
-function rvAddLessonHtml(items){
-  const have = new Set(items.filter(i => i.kind === 'lesson').map(i => i.key));
-  const left = [...rvStudied().values()].filter(s => !have.has(s.key));
-  if(!left.length) return '';
-  const ids = [...new Set(left.map(s => String(s.bookId)))];
-  return `<details class="rv-set"><summary>إضافة درس سبق إلى المراجعة (${arabicNumeral(left.length)})</summary>
-    <div class="field"><label>الكتاب</label><select id="rvAddBook" onchange="rvAddFill()">${ids.map(b => `<option value="${rvEsc(b)}">${rvEsc(rvBookName(b))}</option>`).join('')}</select></div>
-    <div class="field"><label>الدرس</label><select id="rvAddLesson"></select></div>
-    <button class="primary" onclick="rvAddLesson()">إضافة</button>
-    <div class="hint">يبدأ الجدول من تاريخ دراسة الدرس، وتُتخطّى المواعيد التي فاتت.</div></details>`;
 }
 function rvSettingsHtml(){
   return `<details class="rv-set"><summary>جدول التكرار الافتراضي</summary>
-    <div class="field"><label>الأيام بعد تاريخ الدرس أو إنشاء الوحدة، مفصولة بفواصل</label><input id="rvSchedIn" value="${rvDefaultSchedule().join('، ')}"></div>
-    <div class="field"><label>إدراج الدروس المدروسة تلقائيًا ابتداءً من تاريخ</label><input type="date" id="rvAutoIn" value="${rvAutoFrom()}"></div>
+    <div class="field"><label>الأيام بعد إنشاء الوحدة، مفصولة بفواصل</label><input id="rvSchedIn" value="${rvDefaultSchedule().join('، ')}"></div>
     <div class="rv-actions"><button class="primary" onclick="rvSaveSettings()">حفظ</button><button class="ghost" onclick="rvResetSettings()">الجدول الافتراضي</button></div>
-    <div class="hint">يسري على الدروس والوحدات الجديدة، وعلى الدروس التي لم تُراجَع بعد. أما ما سُجّل له تقدّم فيحتفظ بجدوله ويُعدَّل من «المزيد» في بطاقته.</div></details>`;
+    <div class="hint">يسري على الوحدات الجديدة وعلى الوحدات التي لم تُراجَع بعد. أما ما سُجّل له تقدّم فيحتفظ بجدوله ويُعدَّل من «المزيد» في بطاقته.</div></details>`;
 }
 
 function rvEditorHtml(){
@@ -521,7 +443,7 @@ function rvEditorHtml(){
 function rvUnitsHtml(items){
   const units = items.filter(i => i.kind === 'unit');
   let h = `<div class="timeline-head"><h2>الوحدات العلمية</h2><button class="primary" onclick="rvDraftOpen()">+ وحدة جديدة</button></div>
-    <div class="hint" style="margin:-6px 0 12px">اجمع عدة دروس سبقت دراستها في باب أو فصل، لتتكرر مراجعتها كوحدة واحدة بجدول مستقل عن الدروس المفردة.</div>
+    <div class="hint" style="margin:-6px 0 12px">اجمع عدة دروس سبقت دراستها في باب أو فصل، لتتكرر مراجعتها كوحدة واحدة.</div>
     <div id="rvEditor">${rvEditorHtml()}</div>`;
   h += units.map(u => rvCardHtml(u, {extra:`<button class="ghost" onclick="rvDraftOpen('${u.unitId}')">تعديل الوحدة</button><button class="ghost" onclick="rvDeleteUnit('${u.unitId}')">حذف</button>`})).join('');
   if(!units.length && !RV.draft) h += '<div class="empty">لا وحدات بعد.</div>';
@@ -598,7 +520,6 @@ function rvRender(){
   el.innerHTML = `<div class="timeline-head"><h2>المراجعة والتكرار</h2></div>
     <div class="tag-choices rv-subnav">${tabs.map(([k, l]) => `<button class="${RV.tab === k ? 'active' : ''}" onclick="rvSetTab('${k}')">${l}</button>`).join('')}</div>
     ${body}`;
-  if(document.getElementById('rvAddBook')) rvAddFill();
 }
 
 async function openReview(){
