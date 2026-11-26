@@ -6,7 +6,7 @@ const RV_DEFAULT = [1, 3, 7, 14, 30, 60, 90];
 const RV_RES = {strong:'متقن', medium:'متوسط', weak:'ضعيف', postponed:'تأجيل'};
 const RV = {items:[], units:[], logs:[], loaded:false, missing:false, err:'', tab:'today', cal:null, calDay:null, view:null, more:null, snooze:null, draft:null};
 
-const RV_SQL = `-- شغّله مرة واحدة في Supabase ← SQL Editor
+const RV_SQL = `-- 04-review.sql: شغّله في Supabase ← SQL Editor (آمن لإعادة التشغيل)
 create table if not exists review_units (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users not null default auth.uid(),
@@ -45,9 +45,15 @@ create table if not exists review_logs (
 alter table review_units enable row level security;
 alter table review_items enable row level security;
 alter table review_logs enable row level security;
+drop policy if exists "own review_units" on review_units;
 create policy "own review_units" on review_units for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own review_items" on review_items;
 create policy "own review_items" on review_items for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "own review_logs" on review_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);`;
+drop policy if exists "own review_logs" on review_logs;
+create policy "own review_logs" on review_logs for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+grant select, insert, update, delete on review_units, review_items, review_logs to authenticated;
+
+notify pgrst, 'reload schema';`;
 
 /* ---------- أدوات التاريخ والجدول ---------- */
 function rvEsc(s){ return escapeHtml(String(s == null ? '' : s)); }
