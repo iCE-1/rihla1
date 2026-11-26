@@ -1,0 +1,29 @@
+/* notes.css — خانة الملاحظات في النماذج وعرضها في السجل */
+
+  /* خانة الملاحظات في النماذج: قسم قابل للطي */
+  .note-fold{margin:0 0 14px;border:1px solid var(--rule);border-radius:var(--r-md);background:var(--paper);overflow:hidden;transition:border-color .2s,box-shadow .2s;}
+  .note-fold.open{border-color:var(--gold);box-shadow:0 0 0 1px rgba(212,175,90,.25);}
+  .note-head{width:100%;display:flex;align-items:center;gap:9px;padding:11px 14px;background:transparent;border:0;color:var(--ink);font-family:'Tajawal',sans-serif;font-size:.86rem;cursor:pointer;text-align:right;}
+  .note-head .ic{color:var(--gold);}
+  .note-dot{display:none;width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px var(--gold);}
+  .note-fold.has .note-dot{display:inline-block;}
+  .note-chev{margin-inline-start:auto;color:var(--ink-soft);transition:transform .2s;}
+  .note-fold.open .note-chev{transform:rotate(180deg);}
+  .note-body{display:none;padding:0 12px 12px;}
+  .note-fold.open .note-body{display:block;animation:cardIn .22s ease;}
+  .note-body textarea{width:100%;min-height:88px;padding:10px 12px;border:1px solid var(--rule);background:var(--paper-dark);color:var(--ink);border-radius:var(--r-sm);font-family:'Tajawal',sans-serif;font-size:.92rem;line-height:1.95;resize:vertical;}
+  .note-body textarea:focus{outline:none;border-color:var(--gold);}
+  body.zen #focusPanel > .note-fold{display:none !important;}
+
+  /* عرض الملاحظة في السجل: قابل للطي */
+  .note-det{margin:8px 0 2px;}
+  .note-det summary{list-style:none;display:inline-flex;align-items:center;gap:7px;max-width:100%;padding:4px 13px;border:1px dashed var(--rule);border-radius:999px;font-size:.78rem;color:var(--ink-soft);cursor:pointer;transition:border-color .2s,color .2s;}
+  .note-det summary::-webkit-details-marker{display:none;}
+  .note-det summary:hover{border-color:var(--gold);color:var(--ink);}
+  .note-det summary .ic{color:var(--gold);flex:none;}
+  .note-det .np{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62vw;}
+  .note-det .nl{display:none;}
+  .note-det[open] summary{border-style:solid;border-color:var(--gold);color:var(--gold);}
+  .note-det[open] .np{display:none;}
+  .note-det[open] .nl{display:inline;}
+  .note-det[open] .entry-note{animation:cardIn .25s ease;}

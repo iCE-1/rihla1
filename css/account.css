@@ -1,0 +1,52 @@
+/* account.css — صفحة الحساب: الأوسمة والإحصائيات القابلة للطي */
+
+  /* ===== صفحة الحساب الجديدة: أوسمة وإحصائيات قابلة للطي ===== */
+  .pf-top{display:flex;align-items:center;gap:16px;margin-bottom:14px;}
+  .pf-top .avatar{width:88px;height:88px;flex:none;font-size:2.1rem;}
+  .pf-id{min-width:0;}
+  .pf-name{font-family:'Aref Ruqaa',serif;font-size:1.7rem;color:var(--green-deep);line-height:1.3;word-break:break-word;}
+  .pf-handle{font-size:.9rem;color:var(--ink-soft);direction:ltr;text-align:right;}
+  .pf-since{display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--ink-soft);margin-bottom:14px;}
+  .pf-edit-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:999px;border:1px solid var(--rule);background:var(--paper-dark);color:var(--ink);font-family:'Tajawal',sans-serif;font-size:.9rem;cursor:pointer;margin-bottom:18px;}
+  .pf-edit-btn:hover{border-color:var(--gold);}
+
+  .pf-sec{background:var(--paper-dark);border:1px solid var(--rule);border-radius:16px;margin-bottom:14px;overflow:hidden;}
+  .pf-sec-head{width:100%;display:flex;align-items:center;gap:10px;padding:16px 18px;background:transparent;border:0;color:var(--ink);font-family:'Aref Ruqaa',serif;font-size:1.2rem;cursor:pointer;text-align:right;}
+  .pf-chip{font-family:'Tajawal',sans-serif;font-size:.78rem;background:var(--paper);color:var(--ink-soft);border-radius:999px;padding:2px 10px;}
+  .pf-chev{margin-inline-start:auto;color:var(--ink-soft);transition:transform .2s;font-family:'Tajawal',sans-serif;}
+  .pf-sec.open > .pf-sec-head .pf-chev,.pf-grp.open > .pf-grp-head .pf-chev{transform:rotate(180deg);}
+  .pf-body{display:none;padding:0 18px 18px;}
+  .pf-sec.open > .pf-body{display:block;}
+
+  .pf-edit{margin:0 0 18px;}
+  .pf-edit-panel{display:none;background:var(--paper-dark);border:1px solid var(--rule);border-radius:16px;padding:16px;margin-bottom:14px;}
+  .pf-edit-panel.open{display:block;}
+
+  .pf-stat-list{display:flex;flex-direction:column;gap:10px;}
+  .pf-stat{display:flex;align-items:center;gap:14px;background:var(--paper);border-radius:12px;padding:12px 14px;}
+  .pf-stat-ic{width:44px;height:44px;flex:none;border-radius:12px;background:var(--paper-dark);display:grid;place-items:center;font-size:1.35rem;}
+  .pf-stat-tx{min-width:0;flex:1;}
+  .pf-stat-lbl{font-size:.82rem;color:var(--ink-soft);}
+  .pf-stat-sub{font-size:.72rem;color:var(--ink-soft);opacity:.85;margin-top:2px;}
+  .pf-stat-val{font-family:'Aref Ruqaa',serif;font-size:1.5rem;color:var(--green-deep);white-space:nowrap;}
+  .pf-stat-val small{font-family:'Tajawal',sans-serif;font-size:.72rem;color:var(--ink-soft);margin-inline-start:4px;}
+
+  .pf-grp{margin-top:12px;}
+  .pf-grp:first-child{margin-top:0;}
+  .pf-grp-head{width:100%;display:flex;align-items:center;gap:10px;background:transparent;border:0;color:var(--ink);font-family:'Aref Ruqaa',serif;font-size:1.25rem;cursor:pointer;text-align:right;padding:6px 0;}
+  .pf-grp-body{display:none;padding-top:10px;}
+  .pf-grp.open > .pf-grp-body{display:block;}
+  .pf-badges{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  @media (min-width:640px){.pf-badges{grid-template-columns:repeat(4,1fr);}}
+  .pf-badge{background:var(--paper);border-radius:16px;padding:14px 6px 12px;text-align:center;min-width:0;}
+  .pf-badge.locked{opacity:.55;}
+  .pf-badge.locked .pf-medal{filter:grayscale(1);}
+  .pf-medal{position:relative;width:64px;height:72px;margin:10px auto 8px;display:grid;place-items:center;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:linear-gradient(150deg,var(--gold),var(--green));color:#fff;}
+  .pf-medal b{font-family:'Aref Ruqaa',serif;font-size:1.5rem;text-shadow:0 1px 3px rgba(0,0,0,.35);line-height:1;}
+  .pf-medal-wrap{position:relative;display:inline-block;}
+  .pf-flame{color:var(--gold);position:absolute;top:-2px;left:50%;transform:translateX(-50%);font-size:1.15rem;z-index:2;line-height:1;}
+  .pf-badge-name{font-size:.82rem;color:var(--ink);line-height:1.4;}
+  .pf-badge-date{font-size:.7rem;color:var(--ink-soft);margin-top:4px;}
+  .pf-empty{font-size:.85rem;color:var(--ink-soft);padding:6px 0;}
+
+  .entry-note{margin:8px 0 2px;padding:10px 14px;background:var(--paper);border-radius:var(--r-sm);border-right:3px solid var(--gold);font-size:.88rem;line-height:1.95;color:var(--ink);white-space:pre-wrap;}

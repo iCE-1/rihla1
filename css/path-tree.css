@@ -1,0 +1,102 @@
+/* path-tree.css — صفحة «الطريق»: شجرة العلوم وحركتها */
+
+  /* ===== الطريق: شجرة العلوم ===== */
+  .tree-hint{font-size:.8rem;color:var(--ink-soft);margin:-6px 0 6px;}
+  .tree-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.72rem;color:var(--ink-soft);margin-bottom:12px;}
+  .tree-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:5px;vertical-align:middle;}
+  .lg-cur{background:var(--gold);box-shadow:0 0 6px var(--gold);}
+  .lg-done{background:#eee;}
+  .lg-todo{border:1px solid #777;}
+  .tree-wrap{position:relative;background:radial-gradient(ellipse at 50% 100%,#1d1d1d,#0a0a0a 72%);border:1px solid #222;border-radius:18px;padding:26px 12px 10px;overflow:hidden;}
+  .tree-empty{color:#999;}
+  .tr-trunk{position:absolute;left:50%;transform:translateX(-50%);top:8px;bottom:40px;width:30px;height:calc(100% - 48px);z-index:0;filter:drop-shadow(0 0 14px rgba(255,255,255,.05));}
+  .tr-row{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;align-items:center;padding:16px 0;direction:rtl;}
+  .tr-branch{position:absolute;top:50%;width:50%;height:48px;transform:translateY(-50%);overflow:visible;pointer-events:none;z-index:0;transition:opacity .3s;}
+  .tr-row.r .tr-branch{right:0;}
+  .tr-row.l .tr-branch{left:0;transform:translateY(-50%) scaleX(-1);}
+  .tr-branch path{vector-effect:non-scaling-stroke;stroke-linecap:round;transition:fill .3s,stroke .3s;}
+  .tr-branch .limb{fill:var(--lv,#242424);stroke:#363636;stroke-width:1;}
+  .tr-branch .limb2{fill:none;stroke:#6a6a6a;stroke-width:1.2;opacity:.8;}
+  .tr-branch .twig{fill:none;stroke:#474747;stroke-width:2;}
+  .tr-row.open .limb{fill:var(--lvo,#363636);}
+  .tr-row.open .limb2{stroke:#d4d4d4;}
+  .tr-row.open .twig{stroke:#8c8c8c;}
+  .tr-branch.grow{animation:trReveal .9s ease-out backwards;animation-delay:var(--d,0s);}
+  @keyframes trReveal{from{clip-path:inset(0 100% 0 0);}to{clip-path:inset(0);}}
+  .tr-row.stale .tr-branch,.tr-row.stale .tr-fruits{opacity:.45;}
+  .tr-row.bare .tr-branch{opacity:.5;}
+  .tr-fruits{position:absolute;top:50%;width:50%;height:48px;transform:translateY(-50%);pointer-events:none;z-index:1;}
+  .tr-row.r .tr-fruits{right:0;}
+  .tr-row.l .tr-fruits{left:0;}
+  .tr-fruit{position:absolute;top:var(--y);width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%);}
+  .tr-row.r .tr-fruit{left:var(--x);}
+  .tr-row.l .tr-fruit{right:var(--x);transform:translate(50%,-50%);}
+  .tr-fruit.gold{background:var(--gold);box-shadow:0 0 10px 2px rgba(212,175,90,.55);animation:trPulse 2.6s ease-in-out infinite;}
+  .tr-fruit.white{background:#f2f2f2;box-shadow:0 0 8px 1px rgba(255,255,255,.45);}
+  @keyframes trPulse{50%{box-shadow:0 0 16px 4px rgba(212,175,90,.8);}}
+  @media (prefers-reduced-motion:reduce){.tr-branch.grow,.tr-fruit.gold,.tr-panel.pop{animation:none;}}
+  .tr-node{position:relative;z-index:2;width:62%;background:#121212;border:1px solid #333;border-radius:14px;padding:10px 12px;text-align:right;color:#e8e8e8;cursor:pointer;font-family:inherit;transition:border-color .2s,box-shadow .2s;}
+  .tr-row.r .tr-node{grid-column:1;justify-self:start;}
+  .tr-row.l .tr-node{grid-column:2;justify-self:end;}
+  .tr-node:hover{border-color:#777;}
+  .tr-row.has-cur .tr-node{border-color:#6a5a2c;box-shadow:0 0 14px rgba(212,175,90,.12);}
+  .tr-row.full .tr-node{border-color:#d8d8d8;}
+  .tr-row.open .tr-node{border-color:#c4c4c4;box-shadow:0 0 18px rgba(255,255,255,.09);}
+  .tr-row.stale .tr-name{color:#9d9d9d;}
+  .tr-name{display:block;font-family:'Aref Ruqaa',serif;font-size:1.08rem;line-height:1.35;}
+  .tr-meta{display:block;font-size:.72rem;color:#8f8f8f;margin-top:2px;}
+  .tr-dots{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;}
+  .tr-dots i{width:7px;height:7px;border-radius:50%;border:1px solid #555;}
+  .tr-dots i.d-done{background:#eee;border-color:#eee;}
+  .tr-dots i.d-cur{background:var(--gold);border-color:var(--gold);box-shadow:0 0 6px var(--gold);}
+  .tr-dots small{font-size:.65rem;color:#888;line-height:7px;}
+  .tr-bar{display:block;height:3px;background:#262626;border-radius:3px;overflow:hidden;margin-top:7px;}
+  .tr-bar i{display:block;height:100%;background:linear-gradient(90deg,#777,#e0e0e0);transition:width .4s;}
+  .tr-panel{grid-column:1 / -1;margin-top:12px;background:#101010;border:1px solid #2a2a2a;border-radius:14px;padding:12px;color:#ddd;position:relative;z-index:2;}
+  .tr-panel.pop{animation:trOpen .25s ease;}
+  @keyframes trOpen{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}
+  .tr-panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:.78rem;color:#9a9a9a;}
+  .tr-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .tr-actions button{background:#1b1b1b;color:#d0d0d0;border:1px solid #353535;border-radius:999px;padding:4px 12px;font-family:inherit;font-size:.74rem;cursor:pointer;}
+  .tr-actions button:hover{border-color:#999;}
+  .tr-books{margin-top:4px;}
+  .tr-level{position:relative;margin-top:14px;padding-right:18px;}
+  .tr-level::before{content:"";position:absolute;right:5px;top:16px;bottom:14px;width:1px;background:linear-gradient(#444,#262626);}
+  .tr-lvl-title{position:relative;font-size:.72rem;color:#8a8a8a;letter-spacing:.3px;}
+  .tr-lvl-title::before{content:"";position:absolute;right:-18px;top:4px;width:11px;height:11px;border-radius:50%;background:#1a1a1a;border:1px solid #555;}
+  .tr-book{position:relative;background:#161616;border-right:2px solid #3a3a3a;border-radius:8px;padding:9px 11px;margin-top:9px;}
+  .tr-book::before{content:"";position:absolute;right:-18px;top:20px;width:16px;height:1px;background:#333;}
+  .tr-book.cur{border-right-color:var(--gold);}
+  .tr-book.done{border-right-color:#e6e6e6;}
+  .tr-book-top{display:flex;align-items:center;gap:8px;}
+  .tr-dot{font-size:.8rem;color:#777;width:14px;text-align:center;}
+  .tr-book.cur .tr-dot{color:var(--gold);}
+  .tr-book.done .tr-dot{color:#e6e6e6;}
+  .tr-book-name{flex:1;font-size:.95rem;color:#eee;}
+  .tr-pct{font-size:.74rem;color:#888;}
+  .tr-book-sub{font-size:.7rem;color:#8a8a8a;margin-top:3px;}
+  .tr-book-cur{font-size:.78rem;color:#bbb;margin-top:5px;}
+  .tr-book .tr-actions{margin-top:8px;}
+  .tr-none{font-size:.82rem;color:#888;padding:12px 2px;}
+  .tr-roots{display:block;width:170px;height:40px;margin:0 auto;position:relative;z-index:1;}
+  .tr-roots path{fill:none;stroke:#262626;stroke-linecap:round;}
+
+  /* ===== حركة وتفاعل الشجرة ===== */
+  .tree-stage{position:relative;border-radius:18px;overflow:hidden;}
+  .tr-fx{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden;border-radius:18px;}
+  .tr-fx i{position:absolute;bottom:-2%;width:3px;height:3px;border-radius:50%;background:#d9c27a;box-shadow:0 0 6px 1px rgba(217,194,122,.55);opacity:0;
+    animation:trFloat var(--t,12s) linear infinite var(--dl,0s),trDrift 5s ease-in-out infinite alternate var(--dl,0s);}
+  @keyframes trFloat{0%{bottom:-2%;opacity:0;}10%{opacity:.75;}90%{opacity:.45;}100%{bottom:102%;opacity:0;}}
+  @keyframes trDrift{from{translate:-8px 0;}to{translate:10px 0;}}
+  .tr-branch .sway{transform-origin:0 38px;animation:trSway 8s ease-in-out infinite alternate;animation-delay:var(--sd,0s);}
+  @keyframes trSway{from{transform:rotate(-.9deg);}to{transform:rotate(.9deg);}}
+  .tr-row.intro .tr-node{animation:trIn .55s ease backwards;animation-delay:calc(var(--d,0s) + .25s);}
+  @keyframes trIn{from{opacity:0;transform:translateY(10px) scale(.96);}to{opacity:1;transform:none;}}
+  .tr-node{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+  .tr-node:active{transform:scale(.975);}
+  .tr-row{transition:transform .2s;}
+  .tr-row.dragging{z-index:8;transition:none;filter:drop-shadow(0 10px 18px rgba(0,0,0,.6));}
+  .tr-row.dragging .tr-node{border-color:#e6e6e6;box-shadow:0 0 22px rgba(255,255,255,.18);}
+  .tree-wrap.is-dragging{cursor:grabbing;-webkit-user-select:none;user-select:none;}
+  .header-avatar.active{box-shadow:0 0 0 3px var(--gold);}
+  @media (prefers-reduced-motion:reduce){.tr-fx{display:none;}.tr-branch .sway,.tr-row.intro .tr-node{animation:none;}}
